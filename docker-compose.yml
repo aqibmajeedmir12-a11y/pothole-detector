@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - API_KEY=5HXILJIDPZS4TPPG
+      - FRONTEND_URL=http://localhost:3000
+    volumes:
+      - backend_data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  ai-service:
+    build: ./ai-service
+    ports:
+      - "8000:8000"
+    environment:
+      - BACKEND_URL=http://backend:5001
+      - API_KEY=5HXILJIDPZS4TPPG
+      - HEADLESS=true
+      - MODEL_PATH=best.pt
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend_data:

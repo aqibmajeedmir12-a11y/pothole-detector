@@ -1,0 +1,249 @@
+02:36:17  INFO      Loading model from: best.pt
+02:36:17  ERROR     ❌ Model file not found at best.pt
+02:52:43  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+02:52:47  INFO      Model warm-up complete
+02:52:48  ERROR     Cannot open source: 0
+02:53:53  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+02:53:54  INFO      Model warm-up complete
+02:53:54  ERROR     Cannot open source: 0
+13:05:02  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+13:05:05  INFO      Model warm-up complete
+13:05:06  ERROR     Cannot open source: 0
+13:14:57  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+13:15:00  INFO      Model warm-up complete
+13:15:00  INFO      Trying camera 0 with backend MSMF …
+13:15:00  INFO      Trying camera 0 with backend DSHOW …
+13:15:01  INFO      Trying camera 0 with backend ANY …
+13:15:01  ERROR     ❌ Cannot open camera 0 with any backend. Make sure a webcam is connected, or set CAMERA_SOURCE to a video file path.
+13:17:22  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+13:17:24  INFO      Model warm-up complete
+13:17:24  INFO      Trying camera 0 with backend MSMF …
+13:17:24  INFO      Trying camera 0 with backend DSHOW …
+13:17:24  INFO      Trying camera 0 with backend ANY …
+13:17:24  ERROR     ❌ Cannot open camera 0 with any backend. Make sure a webcam is connected, or set CAMERA_SOURCE to a video file path.
+13:21:00  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+13:21:01  INFO      Model warm-up complete
+13:21:01  INFO      Trying camera 1 with backend MSMF …
+13:21:01  INFO      Trying camera 1 with backend DSHOW …
+13:21:01  INFO      Trying camera 1 with backend ANY …
+13:21:01  ERROR     ❌ Cannot open camera 1 with any backend. Make sure a webcam is connected, or set CAMERA_SOURCE to a video file path.
+13:25:34  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+13:25:38  INFO      Model warm-up complete
+13:25:38  ERROR     Cannot open source: http://192.168.52.112:4747/video
+13:31:09  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+13:31:10  INFO      Model warm-up complete
+13:31:10  ERROR     Cannot open source: http://192.168.52.112:4747/video
+13:32:16  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+13:32:18  INFO      Model warm-up complete
+13:32:18  INFO      Trying camera 0 with backend MSMF …
+13:32:18  INFO      Trying camera 0 with backend DSHOW …
+13:32:18  INFO      Trying camera 0 with backend ANY …
+13:32:18  ERROR     ❌ Cannot open camera 0 with any backend. Make sure a webcam is connected, or set CAMERA_SOURCE to a video file path.
+13:39:14  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+13:39:15  INFO      Model warm-up complete
+13:39:15  INFO      Trying camera 0 with backend MSMF …
+13:39:15  INFO      Trying camera 0 with backend DSHOW …
+13:39:15  INFO      Trying camera 0 with backend ANY …
+13:39:15  ERROR     ❌ Cannot open camera 0 with any backend. Make sure a webcam is connected, or set CAMERA_SOURCE to a video file path.
+13:51:05  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+13:51:07  INFO      Model warm-up complete
+13:51:07  INFO      Trying camera 0 with backend MSMF …
+13:51:07  INFO      Trying camera 0 with backend DSHOW …
+13:51:07  INFO      Trying camera 0 with backend ANY …
+13:51:07  ERROR     ❌ Cannot open camera 0 with any backend. Make sure a webcam is connected, or set CAMERA_SOURCE to a video file path.
+13:52:06  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+13:52:07  INFO      Model warm-up complete
+13:52:08  INFO      Starting capture loop  (press ESC to quit)
+13:54:29  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+13:54:30  INFO      Model warm-up complete
+13:54:31  INFO      Starting capture loop  (press ESC to quit)
+13:55:01  INFO      Session ended  |  confirmed=0  TS_sent=0  TS_failed=0
+13:55:21  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+13:55:22  INFO      Model warm-up complete
+13:55:23  INFO      Starting capture loop  (press ESC to quit)
+13:56:29  INFO      Session ended  |  confirmed=0  TS_sent=0  TS_failed=0
+13:56:43  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+13:56:44  INFO      Model warm-up complete
+13:56:46  ERROR     Cannot open source: http://192.168.52.112:4747/video
+14:01:46  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+14:01:50  INFO      Model warm-up complete
+14:01:50  INFO      Trying camera 0 with backend MSMF …
+14:01:51  INFO      ✅ Camera opened with backend MSMF
+14:01:51  INFO      Starting capture loop  (press ESC to quit)
+14:07:07  INFO      🚨 POTHOLE CONFIRMED  conf=0.68  boxes=1
+14:07:07  INFO      Saved: detections\pothole_20260315_140707_0000.jpg
+14:07:07  WARNING   ⚠️  Backend rejected: {"error":"Invalid API key","message":"The provided API key is not valid"}
+14:07:09  INFO      ✅ ThingSpeak updated  (entry_id=1)
+14:07:14  INFO      🚨 POTHOLE CONFIRMED  conf=0.91  boxes=1
+14:07:14  INFO      Saved: detections\pothole_20260315_140714_0001.jpg
+14:07:14  INFO      ThingSpeak update skipped (cooldown active)
+14:07:14  WARNING   ⚠️  Backend rejected: {"error":"Invalid API key","message":"The provided API key is not valid"}
+14:07:26  INFO      🚨 POTHOLE CONFIRMED  conf=0.67  boxes=1
+14:07:26  INFO      Saved: detections\pothole_20260315_140726_0002.jpg
+14:07:26  WARNING   ⚠️  Backend rejected: {"error":"Invalid API key","message":"The provided API key is not valid"}
+14:07:27  INFO      ✅ ThingSpeak updated  (entry_id=2)
+14:07:31  INFO      🚨 POTHOLE CONFIRMED  conf=0.62  boxes=2
+14:07:31  INFO      Saved: detections\pothole_20260315_140731_0003.jpg
+14:07:31  INFO      ThingSpeak update skipped (cooldown active)
+14:07:31  WARNING   ⚠️  Backend rejected: {"error":"Invalid API key","message":"The provided API key is not valid"}
+14:08:03  INFO      🚨 POTHOLE CONFIRMED  conf=0.65  boxes=1
+14:08:03  INFO      Saved: detections\pothole_20260315_140803_0004.jpg
+14:08:03  WARNING   ⚠️  Backend rejected: {"error":"Invalid API key","message":"The provided API key is not valid"}
+14:08:05  INFO      ✅ ThingSpeak updated  (entry_id=3)
+14:08:05  INFO      🚨 POTHOLE CONFIRMED  conf=0.71  boxes=1
+14:08:05  INFO      Saved: detections\pothole_20260315_140805_0005.jpg
+14:08:05  INFO      ThingSpeak update skipped (cooldown active)
+14:08:05  WARNING   ⚠️  Backend rejected: {"error":"Invalid API key","message":"The provided API key is not valid"}
+14:08:11  INFO      🚨 POTHOLE CONFIRMED  conf=0.74  boxes=1
+14:08:11  INFO      Saved: detections\pothole_20260315_140811_0006.jpg
+14:08:11  INFO      ThingSpeak update skipped (cooldown active)
+14:08:11  WARNING   ⚠️  Backend rejected: {"error":"Invalid API key","message":"The provided API key is not valid"}
+14:08:18  INFO      🚨 POTHOLE CONFIRMED  conf=0.60  boxes=1
+14:08:18  INFO      Saved: detections\pothole_20260315_140818_0007.jpg
+14:08:18  INFO      ThingSpeak update skipped (cooldown active)
+14:08:18  WARNING   ⚠️  Backend rejected: {"error":"Invalid API key","message":"The provided API key is not valid"}
+14:08:45  INFO      Session ended  |  confirmed=8  TS_sent=3  TS_failed=0
+16:36:06  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+16:36:13  INFO      Model warm-up complete
+16:36:13  INFO      Trying camera 0 with backend MSMF …
+16:36:15  INFO      ✅ Camera opened with backend MSMF
+16:36:15  INFO      Starting capture loop  (press ESC to quit)
+16:36:39  INFO      🚨 POTHOLE CONFIRMED  conf=0.77  boxes=1
+16:36:40  INFO      Saved: detections\pothole_20260315_163639_0000.jpg
+16:36:40  ERROR     ❌ Backend update failed: ('Connection aborted.', ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None))
+16:36:41  INFO      ✅ ThingSpeak updated  (entry_id=8)
+16:36:52  INFO      🚨 POTHOLE CONFIRMED  conf=0.55  boxes=1
+16:36:52  INFO      Saved: detections\pothole_20260315_163652_0001.jpg
+16:36:52  INFO      ThingSpeak update skipped (cooldown active)
+16:36:52  INFO      ✅ Backend updated
+16:36:53  INFO      🚨 POTHOLE CONFIRMED  conf=0.64  boxes=1
+16:36:53  INFO      Saved: detections\pothole_20260315_163653_0002.jpg
+16:36:53  INFO      ThingSpeak update skipped (cooldown active)
+16:36:53  INFO      ✅ Backend updated
+16:36:58  INFO      🚨 POTHOLE CONFIRMED  conf=0.74  boxes=1
+16:36:58  INFO      Saved: detections\pothole_20260315_163658_0003.jpg
+16:36:58  INFO      ✅ Backend updated
+16:37:00  INFO      ✅ ThingSpeak updated  (entry_id=9)
+16:37:07  INFO      🚨 POTHOLE CONFIRMED  conf=0.82  boxes=1
+16:37:07  INFO      Saved: detections\pothole_20260315_163707_0004.jpg
+16:37:07  INFO      ThingSpeak update skipped (cooldown active)
+16:37:07  INFO      ✅ Backend updated
+16:37:16  INFO      🚨 POTHOLE CONFIRMED  conf=0.65  boxes=1
+16:37:16  INFO      Saved: detections\pothole_20260315_163716_0005.jpg
+16:37:16  INFO      ✅ Backend updated
+16:37:18  INFO      ✅ ThingSpeak updated  (entry_id=10)
+16:44:16  INFO      Session ended  |  confirmed=6  TS_sent=3  TS_failed=0
+16:55:22  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+16:55:25  INFO      Model warm-up complete
+16:55:25  INFO      Trying camera 0 with backend MSMF …
+16:55:27  INFO      ✅ Camera opened with backend MSMF
+16:55:27  INFO      Starting capture loop  (press ESC to quit)
+16:55:40  INFO      🚨 POTHOLE CONFIRMED  conf=0.73  boxes=4
+16:55:40  INFO      Saved: detections\pothole_20260315_165540_0000.jpg
+16:55:42  INFO      ✅ ThingSpeak updated  (entry_id=11)
+16:55:42  INFO      📍 Geocoded: Maharaja Nagar
+16:55:43  INFO      ✅ Backend updated  (road: Maharaja Nagar)
+16:57:49  INFO      🚨 POTHOLE CONFIRMED  conf=0.96  boxes=3
+16:57:49  INFO      Saved: detections\pothole_20260315_165749_0001.jpg
+16:57:49  INFO      ✅ Backend updated  (road: Maharaja Nagar)
+16:57:51  INFO      ✅ ThingSpeak updated  (entry_id=12)
+16:58:08  INFO      🚨 POTHOLE CONFIRMED  conf=0.80  boxes=5
+16:58:08  INFO      Saved: detections\pothole_20260315_165808_0002.jpg
+16:58:08  INFO      ✅ Backend updated  (road: Maharaja Nagar)
+16:58:09  INFO      ✅ ThingSpeak updated  (entry_id=13)
+17:03:33  INFO      🚨 POTHOLE CONFIRMED  conf=0.69  boxes=1
+17:03:33  INFO      Saved: detections\pothole_20260315_170333_0003.jpg
+17:03:34  INFO      ✅ Backend updated  (road: Maharaja Nagar)
+17:03:35  INFO      ✅ ThingSpeak updated  (entry_id=14)
+17:03:37  INFO      🚨 POTHOLE CONFIRMED  conf=0.76  boxes=1
+17:03:37  INFO      Saved: detections\pothole_20260315_170337_0004.jpg
+17:03:37  INFO      ThingSpeak update skipped (cooldown active)
+17:03:37  INFO      ✅ Backend updated  (road: Maharaja Nagar)
+17:20:48  INFO      🚨 POTHOLE CONFIRMED  conf=0.74  boxes=1
+17:20:48  INFO      Saved: detections\pothole_20260315_172048_0005.jpg
+17:20:48  INFO      ✅ Backend updated  (road: Maharaja Nagar)
+17:20:51  INFO      ✅ ThingSpeak updated  (entry_id=17)
+17:20:53  INFO      🚨 POTHOLE CONFIRMED  conf=0.59  boxes=1
+17:20:53  INFO      Saved: detections\pothole_20260315_172053_0006.jpg
+17:20:53  INFO      ThingSpeak update skipped (cooldown active)
+17:20:53  INFO      ✅ Backend updated  (road: Maharaja Nagar)
+17:20:54  INFO      🚨 POTHOLE CONFIRMED  conf=0.60  boxes=1
+17:20:55  INFO      Saved: detections\pothole_20260315_172054_0007.jpg
+17:20:55  INFO      ThingSpeak update skipped (cooldown active)
+17:20:55  INFO      ✅ Backend updated  (road: Maharaja Nagar)
+17:20:57  INFO      🚨 POTHOLE CONFIRMED  conf=0.56  boxes=1
+17:20:57  INFO      Saved: detections\pothole_20260315_172057_0008.jpg
+17:20:57  INFO      ThingSpeak update skipped (cooldown active)
+17:20:57  INFO      ✅ Backend updated  (road: Maharaja Nagar)
+17:45:06  INFO      🚨 POTHOLE CONFIRMED  conf=0.66  boxes=1
+17:45:06  INFO      Saved: detections\pothole_20260315_174506_0009.jpg
+17:45:07  INFO      ✅ Backend updated  (road: Maharaja Nagar)
+17:45:09  INFO      ✅ ThingSpeak updated  (entry_id=21)
+17:45:27  INFO      🚨 POTHOLE CONFIRMED  conf=0.81  boxes=1
+17:45:27  INFO      Saved: detections\pothole_20260315_174527_0010.jpg
+17:45:27  INFO      ✅ Backend updated  (road: Maharaja Nagar)
+17:45:30  INFO      ✅ ThingSpeak updated  (entry_id=22)
+21:35:05  INFO      🚨 POTHOLE CONFIRMED  conf=0.60  boxes=1
+21:35:05  INFO      Saved: detections\pothole_20260315_213504_0011.jpg
+21:35:06  INFO      ✅ Backend updated  (road: Maharaja Nagar)
+21:35:08  INFO      ✅ ThingSpeak updated  (entry_id=23)
+21:35:20  INFO      🚨 POTHOLE CONFIRMED  conf=0.57  boxes=1
+21:35:20  INFO      Saved: detections\pothole_20260315_213520_0012.jpg
+21:35:20  INFO      ThingSpeak update skipped (cooldown active)
+21:35:20  INFO      ✅ Backend updated  (road: Maharaja Nagar)
+21:35:20  INFO      🚨 POTHOLE CONFIRMED  conf=0.57  boxes=1
+21:35:21  INFO      Saved: detections\pothole_20260315_213520_0013.jpg
+21:35:21  INFO      ThingSpeak update skipped (cooldown active)
+21:35:21  INFO      ✅ Backend updated  (road: Maharaja Nagar)
+14:06:06  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+14:06:08  INFO      Model warm-up complete
+14:06:08  INFO      Trying camera 0 with backend MSMF …
+14:06:09  INFO      ✅ Camera opened with backend MSMF
+14:06:10  INFO      Starting capture loop  (press ESC to quit)
+14:06:58  INFO      🚨 POTHOLE CONFIRMED  conf=0.89  boxes=1
+14:06:59  INFO      Saved: detections\pothole_20260318_140658_0000.jpg
+14:06:59  WARNING   geocoder not installed — using env fallback. Install with: pip install geocoder
+14:07:01  INFO      ✅ ThingSpeak updated  (entry_id=31)
+14:07:01  WARNING   ⚠️  Backend rejected: {"error":"lat and lng are required"}
+14:07:40  INFO      🚨 POTHOLE CONFIRMED  conf=0.69  boxes=1
+14:07:40  INFO      Saved: detections\pothole_20260318_140740_0001.jpg
+14:07:40  WARNING   geocoder not installed — using env fallback. Install with: pip install geocoder
+14:07:40  WARNING   ⚠️  Backend rejected: {"error":"lat and lng are required"}
+14:07:41  INFO      🚨 POTHOLE CONFIRMED  conf=0.87  boxes=1
+14:07:41  INFO      Saved: detections\pothole_20260318_140741_0002.jpg
+14:07:41  INFO      ThingSpeak update skipped (cooldown active)
+14:07:41  WARNING   geocoder not installed — using env fallback. Install with: pip install geocoder
+14:07:41  WARNING   ⚠️  Backend rejected: {"error":"lat and lng are required"}
+14:07:42  INFO      🚨 POTHOLE CONFIRMED  conf=0.80  boxes=1
+14:07:42  INFO      Saved: detections\pothole_20260318_140742_0003.jpg
+14:07:42  INFO      ThingSpeak update skipped (cooldown active)
+14:07:42  WARNING   geocoder not installed — using env fallback. Install with: pip install geocoder
+14:07:42  WARNING   ⚠️  Backend rejected: {"error":"lat and lng are required"}
+14:07:43  INFO      ✅ ThingSpeak updated  (entry_id=32)
+14:07:43  INFO      🚨 POTHOLE CONFIRMED  conf=0.94  boxes=1
+14:07:43  INFO      Saved: detections\pothole_20260318_140743_0004.jpg
+14:07:43  INFO      ThingSpeak update skipped (cooldown active)
+14:07:43  WARNING   geocoder not installed — using env fallback. Install with: pip install geocoder
+14:07:43  WARNING   ⚠️  Backend rejected: {"error":"lat and lng are required"}
+14:08:05  INFO      🚨 POTHOLE CONFIRMED  conf=0.79  boxes=1
+14:08:05  INFO      Saved: detections\pothole_20260318_140805_0005.jpg
+14:08:05  WARNING   geocoder not installed — using env fallback. Install with: pip install geocoder
+14:08:05  WARNING   ⚠️  Backend rejected: {"error":"lat and lng are required"}
+14:08:06  INFO      ✅ ThingSpeak updated  (entry_id=33)
+14:08:08  INFO      🚨 POTHOLE CONFIRMED  conf=0.90  boxes=1
+14:08:08  INFO      Saved: detections\pothole_20260318_140808_0006.jpg
+14:08:08  INFO      ThingSpeak update skipped (cooldown active)
+14:08:08  WARNING   geocoder not installed — using env fallback. Install with: pip install geocoder
+14:08:08  WARNING   ⚠️  Backend rejected: {"error":"lat and lng are required"}
+14:08:09  INFO      🚨 POTHOLE CONFIRMED  conf=0.68  boxes=1
+14:08:09  INFO      Saved: detections\pothole_20260318_140809_0007.jpg
+14:08:09  INFO      ThingSpeak update skipped (cooldown active)
+14:08:09  WARNING   geocoder not installed — using env fallback. Install with: pip install geocoder
+14:08:09  WARNING   ⚠️  Backend rejected: {"error":"lat and lng are required"}
+14:16:24  INFO      🚨 POTHOLE CONFIRMED  conf=0.85  boxes=1
+14:16:24  INFO      Saved: detections\pothole_20260318_141624_0008.jpg
+14:16:25  INFO      Requested http://ipinfo.io/json
+14:16:25  INFO      📡 Real-time GPS: 13.087800, 80.278500
+14:16:26  INFO      ✅ ThingSpeak updated  (entry_id=34)
+14:16:26  INFO      📍 Geocoded: Ekambareswara Agraharam Street, Zone 5 Royapuram
+14:16:26  INFO      ✅ Backend updated  (road: Ekambareswara Agraharam Street, Zone 5 Royapuram, bbox: 111x99)
