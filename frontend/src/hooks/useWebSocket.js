@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:5000';
+// If VITE_WS_URL isn't set, default to the API URL (helpful for Render/Vercel deployments)
+const WS_URL = import.meta.env.VITE_WS_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // ── Helper: fire desktop notification + Service Worker push for Admin/Super Admin ──
 function fireAdminDesktopNotification(title, body, severity) {
