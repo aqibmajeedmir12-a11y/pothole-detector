@@ -3,6 +3,10 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
+// ThingSpeak config (same as road_monitor.html)
+const THINGSPEAK_READ_KEY = 'S0BXAA3VC6Q2Z5S4';
+const CHANNEL_ID = '3299005';
+
 // Fix default marker icons
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -71,13 +75,34 @@ function FitBounds({ potholes }) {
   return null;
 }
 
+// Center map on ThingSpeak device GPS (admin/super admin)
+function CenterOnDevice() {
+  const map = useMap();
+  const hasCentered = useRef(false);
+
+  useEffect(() => {
+    if (hasCentered.current) return;
+    fetch(`https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json?api_key=${THINGSPEAK_READ_KEY}`)
+      .then(r => r.json())
+      .then(entry => {
+        const lat = parseFloat(entry.field5);
+        const lng = parseFloat(entry.field6);
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+          map.setView([lat, lng], 15);
+          hasCentered.current = true;
+        }
+      })
+      .catch(() => {});
+  }, [map]);
+
+  return null;
+}
+
 export default function MapView({ potholes = [], showHeatmap = false, onSelectPothole }) {
   // Filter out repaired potholes so their dots don't appear on the map
   const activePotholes = potholes.filter(p => p.status !== 'repaired');
 
-  const center = activePotholes.length > 0 
-    ? [activePotholes[0].lat, activePotholes[0].lng] 
-    : [8.7271, 77.7329]; // Default: GCE Tirunelveli, Tamil Nadu
+  const center = [8.7271, 77.7329]; // Default: GCE Tirunelveli (will be overridden by CenterOnDevice)
 
   return (
     <MapContainer
@@ -92,6 +117,7 @@ export default function MapView({ potholes = [], showHeatmap = false, onSelectPo
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
       />
       
+      <CenterOnDevice />
       {activePotholes.length > 0 && <FitBounds potholes={activePotholes} />}
       <HeatmapOverlay potholes={activePotholes} show={showHeatmap} />
 

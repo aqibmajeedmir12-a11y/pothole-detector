@@ -94,7 +94,8 @@ const Pothole = {
     if (filters.state) { w += " AND LOWER(state) LIKE LOWER(@state)"; p.state = '%' + filters.state + '%'; }
     if (filters.district) { w += " AND LOWER(district) LIKE LOWER(@district)"; p.district = '%' + filters.district + '%'; }
 
-    const total = db.prepare(`SELECT COUNT(*) as count FROM potholes ${w} AND status != 'repaired'`).get(p).count;
+    const total = db.prepare(`SELECT COUNT(*) as count FROM potholes ${w}`).get(p).count;
+    const active = db.prepare(`SELECT COUNT(*) as count FROM potholes ${w} AND status != 'repaired'`).get(p).count;
     const detected = db.prepare(`SELECT COUNT(*) as count FROM potholes ${w} AND status = 'detected'`).get(p).count;
     const confirmed = db.prepare(`SELECT COUNT(*) as count FROM potholes ${w} AND status = 'confirmed'`).get(p).count;
     const inRepair = db.prepare(`SELECT COUNT(*) as count FROM potholes ${w} AND status = 'in_repair'`).get(p).count;
@@ -126,7 +127,7 @@ const Pothole = {
     const roadHealth = Math.max(0, Math.min(100, repairedRatio * 60 + severityFactor * 0.4));
 
     return {
-      total, detected, confirmed, inRepair, repaired, severityCounts,
+      total, active, detected, confirmed, inRepair, repaired, severityCounts,
       todayDetections, recentDetections,
       roadHealthIndex: Math.round(roadHealth)
     };

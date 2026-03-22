@@ -448,17 +448,19 @@ const BACKEND_API_KEY     = "dev-api-key-2024";
 // ── STATE ─────────────────────────────────────────────────
 let map, userMarker, accuracyCircle;
 let currentPos       = null;          // { lat, lng, accuracy, speed, heading }
+let thingSpeakDevicePos = null;       // Last GPS from ThingSpeak (ESP32/Python device)
 let potholeMarkers   = [];
 let seenEntryIds     = new Set();     // deduplicate ThingSpeak entries
 let storedPotholes   = [];            // persisted in localStorage
 let sessionCount     = 0;
 let countdown        = REFRESH_INTERVAL_MS / 1000;
 let alertTimeout     = null;
+const isCitizenView  = new URLSearchParams(window.location.search).get('view') === 'citizen';
 
 const STORAGE_KEY = "sm_potholes_v2";
 
 // ── CITIZEN OVERRIDE ───────────────────────────────────────
-if (new URLSearchParams(window.location.search).get('view') === 'citizen') {
+if (isCitizenView) {
   document.documentElement.classList.add('citizen-view');
   
   window.addEventListener('DOMContentLoaded', () => {
@@ -575,6 +577,9 @@ function setGPSSource(type) {
 // ── PROXIMITY ALERTS ────────────────────────────────────────
 let lastDistAlert = 0;
 function checkProximity(lat, lng) {
+  // Proximity driving alerts should only trigger for citizens
+  if (!isCitizenView) return;
+
   if (!storedPotholes || storedPotholes.length === 0) return;
   const now = Date.now();
   if (now - lastDistAlert < 3000) return; // 3 sec absolute cooldown
@@ -778,7 +783,13 @@ function enableManualPin() {
 document.getElementById("pinBtn").addEventListener("click", enableManualPin);
 
 document.getElementById("recenterBtn").addEventListener("click", () => {
-  if (currentPos && currentPos.lat && currentPos.lng) {
+  // Admin/Super Admin: recenter on ThingSpeak device GPS (ESP32/Python)
+  // Citizen: recenter on their own browser GPS
+  if (!isCitizenView && thingSpeakDevicePos) {
+    map.panTo(new google.maps.LatLng(thingSpeakDevicePos.lat, thingSpeakDevicePos.lng));
+    map.setZoom(18);
+    showToast("Re-centered on IoT device location", "success");
+  } else if (currentPos && currentPos.lat && currentPos.lng) {
     map.panTo(new google.maps.LatLng(currentPos.lat, currentPos.lng));
     map.setZoom(18);
     showToast("Re-centered on your location", "success");
@@ -903,7 +914,7 @@ function loadBackendPotholes() {
         addLogEntry(pthole);
       });
 
-      bumpStat("statTotal", storedPotholes.length);
+      bumpStat("statTotal", potholes.length);
 
       if (storedPotholes.length > 0) {
         const lp = storedPotholes[storedPotholes.length - 1];
@@ -944,11 +955,22 @@ function loadThingSpeakData() {
         if (seenEntryIds.has(entryId)) return;
         seenEntryIds.add(entryId);
 
+        // Always track the latest ThingSpeak device GPS (field5/field6)
+        const tsLat = parseFloat(feed.field5);
+        const tsLng = parseFloat(feed.field6);
+        if (!isNaN(tsLat) && !isNaN(tsLng) && tsLat !== 0 && tsLng !== 0) {
+          thingSpeakDevicePos = { lat: tsLat, lng: tsLng };
+          // For admin view, update the GPS panel to show device coords
+          if (!isCitizenView) {
+            applyPosition(tsLat, tsLng, null, null, null, "device");
+          }
+        }
+
         if (feed.field2 !== "1") return;  // only confirmed potholes
 
         // field5 / field6 are lat/lng if sent from ESP32/Python; fall back to device GPS
-        let lat = parseFloat(feed.field5);
-        let lng = parseFloat(feed.field6);
+        let lat = tsLat;
+        let lng = tsLng;
 
         if (isNaN(lat) || isNaN(lng)) {
           // Fall back to device's current GPS position
@@ -1041,9 +1063,28 @@ function initMap() {
   // Load potholes from backend API first
   loadBackendPotholes();
 
-  // Set location to GCE Tirunelveli, Tamil Nadu
+  // Set initial location to GCE Tirunelveli, Tamil Nadu
   applyPosition(8.7271, 77.7329, 10, null, null, "device");
   loadThingSpeakData();
+
+  // Fetch latest ThingSpeak entry to get device GPS for initial centering (admin/super admin)
+  if (!isCitizenView) {
+    fetch(`https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json?api_key=${THINGSPEAK_READ_KEY}`)
+      .then(r => r.json())
+      .then(entry => {
+        const lat = parseFloat(entry.field5);
+        const lng = parseFloat(entry.field6);
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+          thingSpeakDevicePos = { lat, lng };
+          applyPosition(lat, lng, null, null, null, "device");
+          map.panTo(new google.maps.LatLng(lat, lng));
+          map.setZoom(POTHOLE_ZOOM);
+          setGPSSource("device");
+          showToast("Map centered on IoT device location", "success");
+        }
+      })
+      .catch(() => {});
+  }
 
   // Manual pin — click anywhere on map
   map.addListener("click", e => {

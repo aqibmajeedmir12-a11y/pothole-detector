@@ -119,10 +119,19 @@ export default function LiveFeed({ potholes = [], sensorData = null, isConnected
                   )}
                 </div>
 
-                {item.image_url && (
-                  <img src={item.image_url} alt="Detection" 
-                    className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
-                )}
+                {item.image_url && (() => {
+                  // image_url may be just a filename (e.g. "pothole_20260322_185310_0004.jpg")
+                  // or a full URL. Construct proper src using backend API URL.
+                  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+                  const src = item.image_url.startsWith('http')
+                    ? item.image_url
+                    : `${API_URL}/detections-images/${item.image_url}`;
+                  return (
+                    <img src={src} alt="Detection" 
+                      className="w-16 h-16 rounded-lg object-cover flex-shrink-0 bg-white/5"
+                      onError={(e) => { e.target.style.display = 'none'; }} />
+                  );
+                })()}
               </div>
             </div>
           ))

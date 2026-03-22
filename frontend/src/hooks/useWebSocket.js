@@ -3,6 +3,49 @@ import { io } from 'socket.io-client';
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:5000';
 
+// ── Helper: fire desktop notification + Service Worker push for Admin/Super Admin ──
+function fireAdminDesktopNotification(title, body, severity) {
+  // 1. Play alert sound
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = severity === 'critical' ? 1000 : 880;
+    osc.type = 'sine';
+    gain.gain.value = 0.18;
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    osc.stop(ctx.currentTime + 0.5);
+  } catch (_) { /* audio not supported */ }
+
+  // 2. Browser Notification API (works even when tab is not focused)
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification(title, {
+        body,
+        icon: '/vite.svg',
+        tag: 'admin-pothole-alert',
+        renotify: true,
+      });
+    } catch (_) { /* fallback below */ }
+  }
+
+  // 3. Service Worker push notification (works even when browser is minimized)
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.ready.then(reg => {
+      reg.showNotification(title, {
+        body,
+        icon: '/vite.svg',
+        vibrate: [200, 100, 200, 100, 200],
+        tag: 'admin-pothole-alert',
+        renotify: true,
+      });
+    }).catch(() => {});
+  }
+}
+
 export function useWebSocket(user) {
   const socketRef = useRef(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -13,6 +56,11 @@ export function useWebSocket(user) {
   const listenersRef = useRef({});
 
   useEffect(() => {
+    // Request notification permission for admin/super admin users
+    if (user && user.role !== 'user' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
     const socket = io(WS_URL, {
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -41,6 +89,16 @@ export function useWebSocket(user) {
         if (user.district && data.district && user.district !== data.district) return;
       }
       setLastPothole(data);
+
+      // ── Desktop notification for Admin / Super Admin ──
+      const severity = data.severity || 'medium';
+      const location = data.roadName || `${data.lat?.toFixed(5)}, ${data.lng?.toFixed(5)}`;
+      const title = severity === 'critical'
+        ? '🚨 CRITICAL POTHOLE DETECTED!'
+        : '⚠️ New Pothole Detected';
+      const body = `${severity.toUpperCase()} severity pothole at ${location}`;
+      fireAdminDesktopNotification(title, body, severity);
+
       if (listenersRef.current.onNewPothole) {
         listenersRef.current.onNewPothole(data);
       }
@@ -77,10 +135,17 @@ export function useWebSocket(user) {
       if (user && !user.superadmin) {
          const p = data.pothole || data;
          if (user.state && p.state && user.state !== p.state) return;
-         if (user.district && p.district && user.district !== p.district) return;
+         if (user.district && p.district && p.district !== user.district) return;
       }
       setLastAlert(data);
       setNotifications(prev => [data, ...prev].slice(0, 20));
+
+      // ── Desktop notification for Admin / Super Admin ──
+      const pothole = data.pothole || {};
+      const severity = pothole.severity || 'medium';
+      const msg = data.message || `New ${severity} pothole detected`;
+      fireAdminDesktopNotification('🔔 Road Monitor Alert', msg, severity);
+
       if (listenersRef.current.onNewAlert) {
         listenersRef.current.onNewAlert(data);
       }

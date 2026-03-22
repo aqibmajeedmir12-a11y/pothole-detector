@@ -247,3 +247,34 @@
 14:16:26  INFO      ✅ ThingSpeak updated  (entry_id=34)
 14:16:26  INFO      📍 Geocoded: Ekambareswara Agraharam Street, Zone 5 Royapuram
 14:16:26  INFO      ✅ Backend updated  (road: Ekambareswara Agraharam Street, Zone 5 Royapuram, bbox: 111x99)
+18:35:57  INFO      Loading model from: G:\iot-hackathone\runs\detect\train5\weights\best.pt
+18:36:00  INFO      Model warm-up complete
+18:36:00  INFO      Trying camera 0 with backend MSMF …
+18:36:01  INFO      ✅ Camera opened with backend MSMF
+18:36:01  INFO      Starting capture loop  (press ESC to quit)
+18:39:22  INFO      🚨 POTHOLE CONFIRMED  conf=0.60  boxes=1
+18:39:23  INFO      Saved: detections\pothole_20260322_183922_0000.jpg
+18:39:25  INFO      📡 Real-time GPS (from ESP32 ThingSpeak): 8.682808, 77.725886
+18:39:26  INFO      ✅ ThingSpeak updated  (entry_id=2088)
+18:39:28  INFO      📍 Geocoded: Palayamkottai, Tirunelveli
+18:39:28  INFO      🚨 POTHOLE CONFIRMED  conf=0.70  boxes=1
+18:39:28  INFO      Saved: detections\pothole_20260322_183928_0001.jpg
+18:39:28  INFO      ThingSpeak update skipped (cooldown active)
+18:39:30  INFO      ✅ Backend updated  (road: Palayamkottai, Tirunelveli, bbox: 56x52)
+18:39:32  INFO      Requested http://ipinfo.io/json
+18:39:32  INFO      📡 Real-time GPS (IP Fallback): 13.087800, 80.278500
+18:39:32  INFO      🚨 POTHOLE CONFIRMED  conf=0.79  boxes=1
+18:39:33  INFO      Saved: detections\pothole_20260322_183932_0002.jpg
+18:39:33  INFO      ThingSpeak update skipped (cooldown active)
+18:39:33  INFO      Requested http://ipinfo.io/json
+18:39:33  INFO      📡 Real-time GPS (IP Fallback): 13.087800, 80.278500
+18:39:35  INFO      📍 Geocoded: Ekambareswara Agraharam Street, Zone 5 Royapuram
+18:39:36  INFO      ✅ Backend updated  (road: Ekambareswara Agraharam Street, Zone 5 Royapuram, bbox: 288x175)
+18:39:36  INFO      📍 Geocoded: Ekambareswara Agraharam Street, Zone 5 Royapuram
+18:39:36  INFO      ✅ Backend updated  (road: Ekambareswara Agraharam Street, Zone 5 Royapuram, bbox: 269x167)
+18:53:05  INFO      🚨 POTHOLE CONFIRMED  conf=0.85  boxes=1
+18:53:05  INFO      Saved: detections\pothole_20260322_185305_0003.jpg
+18:53:07  INFO      📡 Real-time GPS (from ESP32 ThingSpeak): 8.682871, 77.725751
+18:53:08  WARNING   ⚠️  ThingSpeak rejected  status=200 body='0'
+18:53:09  INFO      📍 Geocoded: Palayamkottai, Tirunelveli
+18:53:10  INFO      ✅ Backend updated  (road: Palayamkottai, Tirunelveli, bbox: 111x90)

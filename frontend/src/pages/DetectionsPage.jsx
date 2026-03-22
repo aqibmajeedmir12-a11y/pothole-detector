@@ -114,7 +114,7 @@ export default function DetectionsPage() {
               <div className="relative h-44 bg-dark-900 flex items-center justify-center overflow-hidden">
                 {det.image_url ? (
                   <img
-                    src={det.image_url.startsWith('http') ? det.image_url : `/detections-images/${det.image_url}`}
+                    src={det.image_url.startsWith('http') ? det.image_url : `${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/detections-images/${det.image_url}`}
                     alt={`Pothole #${det.id}`}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
@@ -203,7 +203,7 @@ export default function DetectionsPage() {
             <div className="relative bg-dark-900 min-h-[200px] flex items-center justify-center">
               {selectedImage.image_url ? (
                 <img
-                  src={selectedImage.image_url.startsWith('http') ? selectedImage.image_url : `/detections-images/${selectedImage.image_url}`}
+                  src={selectedImage.image_url.startsWith('http') ? selectedImage.image_url : `${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/detections-images/${selectedImage.image_url}`}
                   alt={`Pothole #${selectedImage.id}`}
                   className="w-full max-h-[50vh] object-contain"
                 />

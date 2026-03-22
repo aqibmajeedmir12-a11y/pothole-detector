@@ -13,18 +13,18 @@ router.get('/', (req, res) => {
       case 'yearly':
         groupExpr = "strftime('%Y', detected_at)";
         labelExpr = "strftime('%Y', detected_at) as label";
-        dateFilter = "detected_at >= datetime('now', '-5 years')";
+        dateFilter = "detected_at >= datetime('now', '-5 years', 'localtime')";
         break;
       case 'monthly':
         groupExpr = "strftime('%Y-%m', detected_at)";
         labelExpr = "strftime('%Y-%m', detected_at) as label";
-        dateFilter = "detected_at >= datetime('now', '-12 months')";
+        dateFilter = "detected_at >= datetime('now', '-12 months', 'localtime')";
         break;
       case 'daily':
       default:
         groupExpr = "date(detected_at)";
         labelExpr = "date(detected_at) as label";
-        dateFilter = "detected_at >= datetime('now', '-30 days')";
+        dateFilter = "detected_at >= datetime('now', '-30 days', 'localtime')";
         break;
     }
 
