@@ -28,6 +28,13 @@ router.get('/', (req, res) => {
         break;
     }
 
+    let p = {};
+    let accessFilter = "";
+    if (req.query.state) { accessFilter += " AND state = @state"; p.state = req.query.state; }
+    if (req.query.district) { accessFilter += " AND district = @district"; p.district = req.query.district; }
+
+    const combinedFilter = `${dateFilter} ${accessFilter}`;
+
     // Summary stats for the period
     const summary = db.prepare(`
       SELECT 
@@ -40,8 +47,8 @@ router.get('/', (req, res) => {
         ROUND(COALESCE(SUM(cost), 0), 2) as totalCost,
         ROUND(COALESCE(AVG(confidence), 0), 3) as avgConfidence
       FROM potholes
-      WHERE ${dateFilter}
-    `).get();
+      WHERE ${combinedFilter}
+    `).get(p);
 
     // Grouped data for chart + table
     const grouped = db.prepare(`
@@ -56,10 +63,10 @@ router.get('/', (req, res) => {
         ROUND(COALESCE(SUM(cost), 0), 2) as totalCost,
         ROUND(COALESCE(AVG(confidence), 0), 3) as avgConfidence
       FROM potholes
-      WHERE ${dateFilter}
+      WHERE ${combinedFilter}
       GROUP BY ${groupExpr}
       ORDER BY label ASC
-    `).all();
+    `).all(p);
 
     // Top road names in the period
     const topRoads = db.prepare(`
@@ -68,11 +75,11 @@ router.get('/', (req, res) => {
         COUNT(*) as count,
         ROUND(COALESCE(SUM(cost), 0), 2) as totalCost
       FROM potholes
-      WHERE ${dateFilter} AND road_name IS NOT NULL AND road_name != ''
+      WHERE ${combinedFilter} AND road_name IS NOT NULL AND road_name != ''
       GROUP BY road_name
       ORDER BY count DESC
       LIMIT 10
-    `).all();
+    `).all(p);
 
     res.json({
       success: true,

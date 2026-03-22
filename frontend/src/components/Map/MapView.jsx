@@ -72,8 +72,11 @@ function FitBounds({ potholes }) {
 }
 
 export default function MapView({ potholes = [], showHeatmap = false, onSelectPothole }) {
-  const center = potholes.length > 0 
-    ? [potholes[0].lat, potholes[0].lng] 
+  // Filter out repaired potholes so their dots don't appear on the map
+  const activePotholes = potholes.filter(p => p.status !== 'repaired');
+
+  const center = activePotholes.length > 0 
+    ? [activePotholes[0].lat, activePotholes[0].lng] 
     : [8.7271, 77.7329]; // Default: GCE Tirunelveli, Tamil Nadu
 
   return (
@@ -89,10 +92,10 @@ export default function MapView({ potholes = [], showHeatmap = false, onSelectPo
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
       />
       
-      {potholes.length > 0 && <FitBounds potholes={potholes} />}
-      <HeatmapOverlay potholes={potholes} show={showHeatmap} />
+      {activePotholes.length > 0 && <FitBounds potholes={activePotholes} />}
+      <HeatmapOverlay potholes={activePotholes} show={showHeatmap} />
 
-      {potholes.map((pothole) => (
+      {activePotholes.map((pothole) => (
         <Marker
           key={pothole.id}
           position={[pothole.lat, pothole.lng]}

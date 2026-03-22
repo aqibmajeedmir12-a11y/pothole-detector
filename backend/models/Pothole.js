@@ -3,8 +3,8 @@ const db = require('../config/db');
 const Pothole = {
   create(data) {
     const stmt = db.prepare(`
-      INSERT INTO potholes (lat, lng, severity, source, image_url, description, status, detected_at, road_name, confidence, area, volume, cost)
-      VALUES (@lat, @lng, @severity, @source, @imageUrl, @description, @status, @detectedAt, @roadName, @confidence, @area, @volume, @cost)
+      INSERT INTO potholes (lat, lng, severity, source, image_url, description, status, detected_at, road_name, confidence, area, volume, cost, state, district)
+      VALUES (@lat, @lng, @severity, @source, @imageUrl, @description, @status, @detectedAt, @roadName, @confidence, @area, @volume, @cost, @state, @district)
     `);
     const result = stmt.run({
       lat: data.lat,
@@ -19,7 +19,9 @@ const Pothole = {
       confidence: data.confidence || 0,
       area: data.area || 0,
       volume: data.volume || 0,
-      cost: data.cost || 0
+      cost: data.cost || 0,
+      state: data.state || null,
+      district: data.district || null
     });
     return { id: result.lastInsertRowid, ...data };
   },
@@ -39,6 +41,14 @@ const Pothole = {
     if (filters.source) {
       query += ' AND source = @source';
       params.source = filters.source;
+    }
+    if (filters.state) {
+      query += ' AND LOWER(state) LIKE LOWER(@state)';
+      params.state = '%' + filters.state + '%';
+    }
+    if (filters.district) {
+      query += ' AND LOWER(district) LIKE LOWER(@district)';
+      params.district = '%' + filters.district + '%';
     }
 
     query += ' ORDER BY detected_at DESC';
@@ -78,31 +88,36 @@ const Pothole = {
     return db.prepare('DELETE FROM potholes WHERE id = ?').run(id);
   },
 
-  getStats() {
-    const total = db.prepare('SELECT COUNT(*) as count FROM potholes').get().count;
-    const detected = db.prepare("SELECT COUNT(*) as count FROM potholes WHERE status = 'detected'").get().count;
-    const confirmed = db.prepare("SELECT COUNT(*) as count FROM potholes WHERE status = 'confirmed'").get().count;
-    const inRepair = db.prepare("SELECT COUNT(*) as count FROM potholes WHERE status = 'in_repair'").get().count;
-    const repaired = db.prepare("SELECT COUNT(*) as count FROM potholes WHERE status = 'repaired'").get().count;
+  getStats(filters = {}) {
+    let w = "WHERE 1=1";
+    let p = {};
+    if (filters.state) { w += " AND LOWER(state) LIKE LOWER(@state)"; p.state = '%' + filters.state + '%'; }
+    if (filters.district) { w += " AND LOWER(district) LIKE LOWER(@district)"; p.district = '%' + filters.district + '%'; }
+
+    const total = db.prepare(`SELECT COUNT(*) as count FROM potholes ${w} AND status != 'repaired'`).get(p).count;
+    const detected = db.prepare(`SELECT COUNT(*) as count FROM potholes ${w} AND status = 'detected'`).get(p).count;
+    const confirmed = db.prepare(`SELECT COUNT(*) as count FROM potholes ${w} AND status = 'confirmed'`).get(p).count;
+    const inRepair = db.prepare(`SELECT COUNT(*) as count FROM potholes ${w} AND status = 'in_repair'`).get(p).count;
+    const repaired = db.prepare(`SELECT COUNT(*) as count FROM potholes ${w} AND status = 'repaired'`).get(p).count;
     
     const severityCounts = db.prepare(`
-      SELECT severity, COUNT(*) as count FROM potholes WHERE status != 'repaired' GROUP BY severity
-    `).all();
+      SELECT severity, COUNT(*) as count FROM potholes ${w} AND status != 'repaired' GROUP BY severity
+    `).all(p);
 
     const todayDetections = db.prepare(`
-      SELECT COUNT(*) as count FROM potholes WHERE date(detected_at) = date('now')
-    `).get().count;
+      SELECT COUNT(*) as count FROM potholes ${w} AND status != 'repaired' AND date(detected_at) = date('now')
+    `).get(p).count;
 
     const recentDetections = db.prepare(`
-      SELECT * FROM potholes ORDER BY detected_at DESC LIMIT 10
-    `).all();
+      SELECT * FROM potholes ${w} ORDER BY detected_at DESC LIMIT 10
+    `).all(p);
 
     // Road health index: based on ratio of repaired vs total, weighted by severity
     const activeIssues = db.prepare(`
-      SELECT 
-        SUM(CASE WHEN severity = 'critical' THEN 25 WHEN severity = 'high' THEN 15 WHEN severity = 'medium' THEN 8 ELSE 3 END) as weighted_score
-      FROM potholes WHERE status != 'repaired'
-    `).get();
+      SELECT SUM(CASE WHEN severity = 'critical' THEN 25 WHEN severity = 'high' THEN 15 WHEN severity = 'medium' THEN 8 ELSE 3 END) as weighted_score
+      FROM potholes ${w} AND status != 'repaired'
+    `).get(p);
+    
     const activeWeighted = activeIssues.weighted_score || 0;
     const totalPotholes = total || 1;
     const repairedRatio = total > 0 ? repaired / total : 1;
@@ -111,14 +126,8 @@ const Pothole = {
     const roadHealth = Math.max(0, Math.min(100, repairedRatio * 60 + severityFactor * 0.4));
 
     return {
-      total,
-      detected,
-      confirmed,
-      inRepair,
-      repaired,
-      severityCounts,
-      todayDetections,
-      recentDetections,
+      total, detected, confirmed, inRepair, repaired, severityCounts,
+      todayDetections, recentDetections,
       roadHealthIndex: Math.round(roadHealth)
     };
   }

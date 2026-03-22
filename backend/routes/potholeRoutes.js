@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const Pothole = require('../models/Pothole');
 const Alert = require('../models/Alert');
+const { getGeocodeData } = require('../utils/geocode');
 
 // POST /api/pothole - Receive pothole detection from AI or sensor
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { lat, lng, severity, source, imageUrl, description, roadName, confidence, bboxWidth, bboxHeight } = req.body;
 
@@ -24,6 +25,18 @@ router.post('/', (req, res) => {
       cost = Math.round(volume * COST_PER_M3);
     }
 
+    // Resolve Geolocation data on the backend side if possible
+    let finalRoadName = roadName;
+    let state = null;
+    let district = null;
+    
+    if (lat && lng) {
+        const geo = await getGeocodeData(parseFloat(lat), parseFloat(lng));
+        finalRoadName = finalRoadName || geo.roadName; // Prefer client road name if passed, fallback to geo
+        state = geo.state;
+        district = geo.district;
+    }
+
     const pothole = Pothole.create({
       lat: parseFloat(lat),
       lng: parseFloat(lng),
@@ -31,7 +44,9 @@ router.post('/', (req, res) => {
       source: source || 'manual',
       imageUrl,
       description,
-      roadName,
+      roadName: finalRoadName,
+      state,
+      district,
       confidence: confidence ? parseFloat(confidence) : 0,
       area: parseFloat(area.toFixed(6)),
       volume: parseFloat(volume.toFixed(8)),
@@ -65,8 +80,8 @@ router.post('/', (req, res) => {
 // GET /api/potholes - Get all potholes with optional filters
 router.get('/', (req, res) => {
   try {
-    const { status, severity, source, limit } = req.query;
-    const potholes = Pothole.findAll({ status, severity, source, limit });
+    const { status, severity, source, limit, state, district } = req.query;
+    const potholes = Pothole.findAll({ status, severity, source, limit, state, district });
     res.json({ success: true, count: potholes.length, data: potholes });
   } catch (error) {
     console.error('Error fetching potholes:', error);

@@ -1,6 +1,12 @@
 import { ExternalLink } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function MapPage() {
+  const { user } = useAuth();
+  const stateQuery = encodeURIComponent(user?.state || '');
+  const districtQuery = encodeURIComponent(user?.district || '');
+  const iframeSrc = `/road_monitor.html?state=${stateQuery}&district=${districtQuery}`;
+
   return (
     <div className="space-y-4 animate-fade-in h-full">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -12,7 +18,7 @@ export default function MapPage() {
         </div>
 
         <a
-          href="/road_monitor.html"
+          href={iframeSrc}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium 
@@ -30,7 +36,7 @@ export default function MapPage() {
         style={{ height: 'calc(100vh - 180px)', minHeight: '500px' }}
       >
         <iframe
-          src="/road_monitor.html"
+          src={iframeSrc}
           title="AIoT Road Monitor - Live Map"
           className="w-full h-full border-0 rounded-2xl"
           allow="geolocation"

@@ -56,9 +56,11 @@ export default function RecentDetections({ detections = [] }) {
               </p>
 
               <div className="flex items-center gap-3 mt-1.5">
-                <span className="text-xs text-gray-500 flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />
-                  {d.road_name || `${d.lat?.toFixed(3)}, ${d.lng?.toFixed(3)}`}
+                <span className="text-xs text-gray-500 flex items-center gap-1 line-clamp-1">
+                  <MapPin className="w-3 h-3 flex-shrink-0" />
+                  {d.road_name && d.road_name !== 'Unknown Location' 
+                    ? `${d.road_name} (${d.lat?.toFixed(4)}, ${d.lng?.toFixed(4)})` 
+                    : `${d.lat?.toFixed(4)}, ${d.lng?.toFixed(4)}`}
                 </span>
                 <span className="text-xs text-gray-500 flex items-center gap-1">
                   <Clock className="w-3 h-3" />

@@ -2,6 +2,7 @@ const axios = require('axios');
 const SensorData = require('../models/SensorData');
 const Pothole = require('../models/Pothole');
 const Alert = require('../models/Alert');
+const { getGeocodeData } = require('../utils/geocode');
 
 class ThingSpeakService {
   constructor() {
@@ -98,12 +99,14 @@ class ThingSpeakService {
   }
 
   // Process a ThingSpeak feed entry and store in our database
-  processFeedEntry(entry) {
+  async processFeedEntry(entry) {
     if (!entry || !entry.entry_id) return null;
 
     const field1Value = parseFloat(entry.field1) || 0;
     const potholeDetected = parseInt(entry.field2) === 1;
     const field3Value = parseInt(entry.field3) || 0;
+    const lat = parseFloat(entry.field5) || 0;
+    const lng = parseFloat(entry.field6) || 0;
     const timestamp = entry.created_at;
 
     // Determine source: if field1 > 1.0, it's ESP32 vibration data
@@ -115,8 +118,8 @@ class ThingSpeakService {
       const sensorData = SensorData.create({
         deviceId: 'ESP32-VIB-01',
         vibrationLevel: field1Value,
-        lat: null,
-        lng: null,
+        lat: lat !== 0 ? lat : null,
+        lng: lng !== 0 ? lng : null,
         timestamp,
         potholeDetected
       });
@@ -138,12 +141,25 @@ class ThingSpeakService {
           : field1Value > 60 ? 'high'
           : field1Value > 40 ? 'medium' : 'low';
 
+        let roadName = 'Unknown Location';
+        let state = null;
+        let district = null;
+        
+        if (lat !== 0 && lng !== 0) {
+          const geo = await getGeocodeData(lat, lng);
+          roadName = geo.roadName;
+          state = geo.state;
+          district = geo.district;
+        }
+
         const pothole = Pothole.create({
-          lat: 8.7271,
-          lng: 77.7329,
+          lat: lat !== 0 ? lat : 8.6824, // Use Thingspeak or default fallback
+          lng: lng !== 0 ? lng : 77.7271, // Use Thingspeak or default fallback
           severity,
           source: 'esp32_sensor',
-          roadName: 'GCE Tirunelveli, Tamil Nadu',
+          roadName: roadName,
+          state: state,
+          district: district,
           description: `Vibration sensor detected pothole (level: ${field1Value.toFixed(1)})`,
           confidence: Math.min(field1Value / 100, 1)
         });
@@ -214,7 +230,7 @@ class ThingSpeakService {
         // Skip already processed entries
         if (entry.entry_id <= this.lastEntryId) continue;
 
-        this.processFeedEntry(entry);
+        await this.processFeedEntry(entry);
         this.lastEntryId = entry.entry_id;
         newEntries++;
       }

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { FileText, Download, RefreshCw, TrendingUp, AlertTriangle, Wrench, CheckCircle, Calendar, MapPin, IndianRupee } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { reportsAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const periods = [
   { key: 'daily', label: 'Daily', description: 'Last 30 days' },
@@ -19,6 +20,7 @@ const severityColors = {
 const barGradientColors = ['#667eea', '#764ba2'];
 
 export default function ReportsPage() {
+  const { user } = useAuth();
   const [activePeriod, setActivePeriod] = useState('daily');
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -26,7 +28,7 @@ export default function ReportsPage() {
   const fetchReport = async (period) => {
     try {
       setLoading(true);
-      const res = await reportsAPI.getReport(period || activePeriod);
+      const res = await reportsAPI.getReport(period || activePeriod, { state: user?.state, district: user?.district });
       setReportData(res.data.data);
     } catch (err) {
       console.error('Failed to fetch report:', err);

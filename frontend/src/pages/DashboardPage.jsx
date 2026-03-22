@@ -4,14 +4,16 @@ import RecentDetections from '../components/Dashboard/RecentDetections';
 import RoadHealthIndex from '../components/Dashboard/RoadHealthIndex';
 import MapView from '../components/Map/MapView';
 import { analyticsAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function DashboardPage({ potholes }) {
+  const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const fetchStats = async () => {
     try {
-      const response = await analyticsAPI.getStats();
+      const response = await analyticsAPI.getStats({ state: user?.state, district: user?.district });
       setStats(response.data.data);
     } catch (err) {
       console.error('Failed to fetch stats:', err);

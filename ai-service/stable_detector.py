@@ -25,19 +25,19 @@ import numpy as np  # type: ignore
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Optional, Tuple, List, Any
+from typing import Optional, Tuple, List, Any, Union, cast
 
 # ─────────────────────────────────────────────
 #  CONFIGURATION
 # ─────────────────────────────────────────────
-MODEL_PATH      = os.getenv("MODEL_PATH", r"G:\iot-hackathone\runs\detect\train5\weights\best.pt")
-CAMERA_SOURCE   = os.getenv("CAMERA_SOURCE", "0")
-CONF_THRESHOLD  = 0.6          # Only consider detections above this confidence
-EMA_ALPHA       = 0.7          # Smoothing factor (0 = full history, 1 = no smoothing)
-CONFIRM_FRAMES  = 3            # Consecutive frames needed to confirm a pothole
-JITTER_THRESH   = 20           # Ignore position changes smaller than this (pixels)
-FREEZE_DURATION = 15           # Frames to freeze a confirmed bounding box
-IMG_SIZE        = 640          # Inference resolution
+MODEL_PATH: str      = os.getenv("MODEL_PATH", r"G:\iot-hackathone\runs\detect\train5\weights\best.pt")
+CAMERA_SOURCE: str   = os.getenv("CAMERA_SOURCE", "0")
+CONF_THRESHOLD: float = 0.6          # Only consider detections above this confidence
+EMA_ALPHA: float      = 0.7          # Smoothing factor (0 = full history, 1 = no smoothing)
+CONFIRM_FRAMES: int   = 3            # Consecutive frames needed to confirm a pothole
+JITTER_THRESH: float  = 20.0         # Ignore position changes smaller than this (pixels)
+FREEZE_DURATION: int  = 15           # Frames to freeze a confirmed bounding box
+IMG_SIZE: int         = 640          # Inference resolution
 
 
 # ─────────────────────────────────────────────
@@ -54,7 +54,7 @@ class SmoothBox:
     initialized: bool = False
 
     def update(self, raw_x1: float, raw_y1: float, raw_x2: float, raw_y2: float,
-               conf: float, alpha: float = EMA_ALPHA, jitter: int = JITTER_THRESH):
+               conf: float, alpha: float = EMA_ALPHA, jitter: float = JITTER_THRESH) -> None:
         """
         Apply EMA smoothing to the bounding box.
         Ignores updates where the center moved less than `jitter` pixels.
@@ -67,11 +67,11 @@ class SmoothBox:
             return
 
         # Step 1: Check if position change exceeds jitter threshold
-        old_cx = (self.x1 + self.x2) / 2
-        old_cy = (self.y1 + self.y2) / 2
-        new_cx = (raw_x1 + raw_x2) / 2
-        new_cy = (raw_y1 + raw_y2) / 2
-        displacement = np.sqrt((new_cx - old_cx) ** 2 + (new_cy - old_cy) ** 2)
+        old_cx: float = (self.x1 + self.x2) / 2
+        old_cy: float = (self.y1 + self.y2) / 2
+        new_cx: float = (raw_x1 + raw_x2) / 2
+        new_cy: float = (raw_y1 + raw_y2) / 2
+        displacement: float = float(np.sqrt((new_cx - old_cx) ** 2 + (new_cy - old_cy) ** 2))
 
         if displacement < jitter:
             # Small change — keep current box, just update confidence
@@ -133,19 +133,19 @@ class PotholeTracker:
 # ─────────────────────────────────────────────
 #  DRAWING HELPERS
 # ─────────────────────────────────────────────
-def draw_stable_box(frame: np.ndarray, tracker: PotholeTracker, label: str = "Pothole"):
+def draw_stable_box(frame: Any, tracker: PotholeTracker, label: str = "Pothole") -> Any:
     """Draw the stabilized bounding box on frame."""
     if not tracker.smooth_box.initialized:
         return frame
 
     x1, y1, x2, y2 = tracker.smooth_box.as_ints()
-    conf = tracker.smooth_box.confidence
+    conf: float = tracker.smooth_box.confidence
 
     if tracker.confirmed or tracker.freeze_counter > 0:
         # Confirmed: solid green box
-        color = (0, 255, 0)
-        thickness = 3
-        status = "CONFIRMED"
+        color: Tuple[int, int, int] = (0, 255, 0)
+        thickness: int = 3
+        status: str = "CONFIRMED"
     elif tracker.streak > 0:
         # Building streak: yellow box
         color = (0, 200, 255)
@@ -158,7 +158,7 @@ def draw_stable_box(frame: np.ndarray, tracker: PotholeTracker, label: str = "Po
     cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
 
     # Draw label background
-    text = f"{label} {conf:.0%} [{status}]"
+    text: str = f"{label} {conf:.0%} [{status}]"
     (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 1)
     cv2.rectangle(frame, (x1, y1 - th - 10), (x1 + tw + 6, y1), color, -1)
     cv2.putText(frame, text, (x1 + 3, y1 - 5),
@@ -166,19 +166,20 @@ def draw_stable_box(frame: np.ndarray, tracker: PotholeTracker, label: str = "Po
 
     # Freeze indicator
     if tracker.freeze_counter > 0:
-        freeze_text = f"FREEZE {tracker.freeze_counter}"
+        freeze_text: str = f"FREEZE {tracker.freeze_counter}"
         cv2.putText(frame, freeze_text, (x1, y2 + 18),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 0), 1, cv2.LINE_AA)
 
     return frame
 
 
-def draw_hud(frame: np.ndarray, fps: float, tracker: PotholeTracker):
+def draw_hud(frame: Any, fps: float, tracker: PotholeTracker) -> Any:
     """Draw heads-up display with stats."""
-    h, w = frame.shape[:2]
+    h: int = frame.shape[0]
+    w: int = frame.shape[1]
 
     # Semi-transparent top bar
-    overlay = frame.copy()
+    overlay: Any = frame.copy()
     cv2.rectangle(overlay, (0, 0), (w, 50), (20, 20, 20), -1)
     cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
 
@@ -192,14 +193,14 @@ def draw_hud(frame: np.ndarray, fps: float, tracker: PotholeTracker):
 
     # Streak indicator (dots in top-right)
     for i in range(CONFIRM_FRAMES):
-        cx = w - 20
-        cy = 12 + i * 14
-        color = (0, 220, 0) if i < tracker.streak else (60, 60, 60)
-        cv2.circle(frame, (cx, cy), 5, color, -1)
+        cx: int = w - 20
+        cy: int = 12 + i * 14
+        dot_color: Tuple[int, int, int] = (0, 220, 0) if i < tracker.streak else (60, 60, 60)
+        cv2.circle(frame, (cx, cy), 5, dot_color, -1)
 
     # Alert banner when confirmed
     if tracker.confirmed or tracker.freeze_counter > 0:
-        pulse = int(128 + 127 * np.sin(time.time() * 6))
+        pulse: int = int(128 + 127 * np.sin(time.time() * 6))
         cv2.rectangle(frame, (0, h - 45), (w, h), (0, 0, pulse), -1)
         cv2.putText(frame, "POTHOLE CONFIRMED - BOX FROZEN",
                     (w // 2 - 230, h - 14),
@@ -211,26 +212,27 @@ def draw_hud(frame: np.ndarray, fps: float, tracker: PotholeTracker):
 # ─────────────────────────────────────────────
 #  MAIN DETECTION LOOP
 # ─────────────────────────────────────────────
-def main():
+def main() -> None:
     print(f"Loading model: {MODEL_PATH}")
     if not os.path.exists(MODEL_PATH):
         print(f"ERROR: Model not found at {MODEL_PATH}")
         return
 
-    model = YOLO(MODEL_PATH)
+    model: Any = YOLO(MODEL_PATH)
 
     # Warm-up
-    dummy = np.zeros((IMG_SIZE, IMG_SIZE, 3), dtype=np.uint8)
+    dummy: Any = np.zeros((IMG_SIZE, IMG_SIZE, 3), dtype=np.uint8)
     model(dummy, verbose=False)
     print("Model warmed up")
 
     # Open video source
+    source: Union[int, str] = CAMERA_SOURCE
     try:
         source = int(CAMERA_SOURCE)
     except ValueError:
-        source = CAMERA_SOURCE
+        pass
 
-    cap = cv2.VideoCapture(source)
+    cap: Any = cv2.VideoCapture(source)
     if not cap.isOpened():
         print(f"ERROR: Cannot open video source: {source}")
         return
@@ -238,35 +240,38 @@ def main():
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
     # Initialize tracker
-    tracker = PotholeTracker()
+    tracker: PotholeTracker = PotholeTracker()
     fps_times: List[float] = []
-    frame_count = 0
+    frame_count: int = 0
 
     print("Starting stable detection... Press ESC to quit.")
 
     while True:
-        ret, frame = cap.read()
-        if not ret:
+        read_result: Any = cap.read()
+        ret: bool = bool(read_result[0])
+        frame: Any = read_result[1]
+        if not ret or frame is None:
             if isinstance(source, str):
                 print("End of video")
                 break
             time.sleep(0.01)
             continue
 
-        frame_count += 1
+        frame_count = cast(int, frame_count) + 1
 
         # ── FPS calculation ──
-        now = time.perf_counter()
+        now: float = time.perf_counter()
         fps_times.append(now)
         # Keep only last 30 timestamps
-        fps_times = fps_times[-30:]
+        while len(fps_times) > 30:
+            fps_times.pop(0)
+        fps: float = 0.0
         if len(fps_times) > 1:
             fps = (len(fps_times) - 1) / (fps_times[-1] - fps_times[0])
-        else:
-            fps = 0.0
 
         # ── Skip every other frame for speed ──
-        if frame_count % 2 != 0:
+        fc: int = cast(int, frame_count)
+        if fc % 2 != 0:
             # Still show the frame with existing box
             frame = draw_stable_box(frame, tracker)
             frame = draw_hud(frame, fps, tracker)
@@ -276,32 +281,36 @@ def main():
             continue
 
         # ── Resize for inference ──
-        inf_frame = cv2.resize(frame, (IMG_SIZE, IMG_SIZE))
+        inf_frame: Any = cv2.resize(frame, (IMG_SIZE, IMG_SIZE))
 
         # ── Run YOLOv8 ──
         results: Any = model(inf_frame, conf=CONF_THRESHOLD, verbose=False)
 
         # ── Find best detection ──
-        best_box = None
-        best_conf = 0.0
-        detected = False
+        best_box: Optional[Tuple[float, float, float, float]] = None
+        best_conf: float = 0.0
+        detected: bool = False
 
         for r in results:
             if not hasattr(r, 'boxes') or r.boxes is None:
                 continue
             for box in r.boxes:
-                conf_val = float(box.conf[0])
+                conf_val: float = float(box.conf[0])
                 if conf_val >= CONF_THRESHOLD and conf_val > best_conf:
                     detected = True
                     best_conf = conf_val
                     # Scale bounding box from inference size back to frame size
-                    x1, y1, x2, y2 = box.xyxy[0].tolist()
-                    scale_x = frame.shape[1] / IMG_SIZE
-                    scale_y = frame.shape[0] / IMG_SIZE
-                    best_box = (x1 * scale_x, y1 * scale_y, x2 * scale_x, y2 * scale_y)
+                    xyxy: List[float] = box.xyxy[0].tolist()
+                    bx1: float = float(xyxy[0])
+                    by1: float = float(xyxy[1])
+                    bx2: float = float(xyxy[2])
+                    by2: float = float(xyxy[3])
+                    scale_x: float = frame.shape[1] / IMG_SIZE
+                    scale_y: float = frame.shape[0] / IMG_SIZE
+                    best_box = (bx1 * scale_x, by1 * scale_y, bx2 * scale_x, by2 * scale_y)
 
         # ── Feed tracker (multi-frame confirmation + EMA smoothing) ──
-        just_confirmed = tracker.feed(detected, best_box, best_conf)
+        just_confirmed: bool = tracker.feed(detected, best_box, best_conf)
 
         if just_confirmed:
             print(f"🚨 POTHOLE CONFIRMED #{tracker.total_confirmations}  "

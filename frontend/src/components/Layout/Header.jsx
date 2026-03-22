@@ -1,5 +1,6 @@
-import { Sun, Moon, Bell, Wifi, WifiOff, Menu, AlertTriangle, Camera, Zap, Clock } from 'lucide-react';
+import { Sun, Moon, Bell, Wifi, WifiOff, Menu, AlertTriangle, Camera, Zap, Clock, User, LogOut } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { useState } from 'react';
 
 function timeAgo(ts) {
@@ -26,8 +27,18 @@ const sourceIcon = {
   esp32_sensor: Zap,
 };
 
-export default function Header({ isConnected, notifications = [], onClearNotifications, onToggleSidebar }) {
+export default function Header({ isConnected, notifications = [], onClearNotifications, onToggleSidebar, userSession }) {
   const { darkMode, toggleDarkMode } = useTheme();
+  const { logout, updateSuperAdminFilter } = useAuth();
+
+  const INDIA_STATES = [
+    "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", 
+    "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Goa", 
+    "Gujarat", "Haryana", "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand", "Karnataka", 
+    "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", 
+    "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", 
+    "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
+  ];
   const [showNotifs, setShowNotifs] = useState(false);
 
   return (
@@ -46,6 +57,58 @@ export default function Header({ isConnected, notifications = [], onClearNotific
       </div>
 
       <div className="flex items-center gap-3">
+        {/* User Session Info */}
+        {userSession && (
+          <div className="hidden md:flex items-center gap-3 mr-4 py-1 px-3 bg-white/5 rounded-full border border-white/10">
+            <User className="w-4 h-4 text-primary-400" />
+            <div className="flex flex-col">
+              <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">
+                {userSession.role === 'admin' ? 'Admin' : 'Citizen App'}
+              </span>
+              <span className="text-xs font-medium text-white">
+                {userSession.district}, {userSession.state}
+              </span>
+            </div>
+            <button 
+              onClick={logout} 
+              title="Sign Out"
+              className="ml-2 p-1.5 rounded-full hover:bg-red-500/20 hover:text-red-400 text-gray-400 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Center: Global geographic filter for SuperAdmins */}
+        {userSession?.superadmin && (
+          <div className="hidden lg:flex items-center gap-2 border border-blue-500/20 bg-blue-500/5 px-3 py-1.5 rounded-xl shadow-[0_0_15px_rgba(59,130,246,0.1)] mr-4">
+            <div className="w-4 h-4 text-blue-400">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+            </div>
+            <select 
+              value={userSession.state || ''} 
+              onChange={e => updateSuperAdminFilter(e.target.value, '')}
+              className="bg-transparent text-sm text-white font-medium focus:outline-none focus:ring-0 [&>option]:bg-dark-950 appearance-none cursor-pointer pr-2 border-0"
+            >
+              <option value="">National View (All States)</option>
+              {INDIA_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            
+            {userSession.state && (
+              <>
+                <span className="text-white/20">|</span>
+                <input 
+                  type="text" 
+                  placeholder="All Districts" 
+                  value={userSession.district || ''} 
+                  onChange={e => updateSuperAdminFilter(userSession.state, e.target.value)}
+                  className="bg-transparent text-sm text-white font-medium focus:outline-none placeholder:text-gray-500 w-28 placeholder:italic border-0 pl-1"
+                />
+              </>
+            )}
+          </div>
+        )}
+
         {/* Connection status */}
         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium
           ${isConnected 
@@ -71,7 +134,7 @@ export default function Header({ isConnected, notifications = [], onClearNotific
 
           {/* Notification dropdown */}
           {showNotifs && (
-            <div className="absolute right-0 top-12 w-96 glass-card animate-fade-in max-h-[480px] overflow-hidden flex flex-col">
+            <div className="absolute right-0 top-12 w-96 bg-dark-950 backdrop-blur-3xl border border-white/10 shadow-2xl rounded-2xl animate-fade-in max-h-[480px] overflow-hidden flex flex-col z-50">
               <div className="flex items-center justify-between p-4 border-b border-white/5">
                 <div className="flex items-center gap-2">
                   <Bell className="w-4 h-4 text-primary-400" />

@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { VibrationChart, ConfidenceChart, FrequencyChart, SourceDistributionChart, RiskAreasTable } from '../components/Analytics/Charts';
 import { analyticsAPI, sensorAPI } from '../services/api';
 import { RefreshCw } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function AnalyticsPage() {
+  const { user } = useAuth();
   const [analytics, setAnalytics] = useState(null);
   const [vibrationTrends, setVibrationTrends] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -12,7 +14,7 @@ export default function AnalyticsPage() {
     try {
       setLoading(true);
       const [analyticsRes, trendsRes] = await Promise.all([
-        analyticsAPI.getStats(),
+        analyticsAPI.getStats({ state: user?.state, district: user?.district }),
         sensorAPI.getTrends(24),
       ]);
       setAnalytics(analyticsRes.data.data);

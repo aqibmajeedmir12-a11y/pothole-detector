@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Trash2, Database, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Trash2, Database, RefreshCw, AlertTriangle, CheckCircle, User, Mail, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function SettingsPage() {
+  const { user, logout } = useAuth();
   const [dbStats, setDbStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -86,7 +88,33 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Database Statistics */}
+      {user?.role === 'user' ? (
+        <div className="glass-card p-6">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-16 h-16 rounded-full bg-primary-500/20 flex items-center justify-center">
+              <User className="w-8 h-8 text-primary-400" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-white">{user.username}</h3>
+              <p className="text-sm text-gray-400 flex items-center gap-2 mt-1">
+                <Mail className="w-4 h-4" /> {user.email}
+              </p>
+            </div>
+          </div>
+          
+          <div className="border-t border-white/5 pt-6 mt-6">
+            <button
+              onClick={logout}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 transition-all"
+            >
+              <LogOut className="w-4 h-4" />
+              Sign Out of Citizen App
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Database Statistics */}
       <div className="glass-card p-6">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
@@ -205,6 +233,8 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );

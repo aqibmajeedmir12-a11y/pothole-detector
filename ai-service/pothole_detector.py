@@ -419,14 +419,28 @@ def main():
              tracker.confirmed, sender.total_sent, sender.total_fail)
 
 def get_realtime_gps():
-    """Get real-time GPS coordinates using IP-based geolocation.
-    Falls back to environment defaults if unavailable."""
+    """Get real-time GPS coordinates fetching from the backend ThingSpeak cache first.
+    Falls back to IP-based geolocation or environment defaults if unavailable."""
+    try:
+        ts_url = f"{BACKEND_URL}/api/thingspeak/last"
+        r = requests.get(ts_url, timeout=3)
+        if r.status_code == 200:
+            data = r.json().get("data", {})
+            if data:
+                lat = float(data.get("field5") or 0.0)
+                lng = float(data.get("field6") or 0.0)
+                if lat != 0.0 and lng != 0.0:
+                    log.info("📡 Real-time GPS (from ESP32 ThingSpeak): %.6f, %.6f", lat, lng)
+                    return lat, lng
+    except Exception as e:
+        log.debug("Failed to fetch GPS from backend API: %s", e)
+
     try:
         import geocoder  # type: ignore
         g = geocoder.ip('me')
         if g.ok and g.latlng:
             _lat, _lng = g.latlng
-            log.info("📡 Real-time GPS: %.6f, %.6f", _lat, _lng)
+            log.info("📡 Real-time GPS (IP Fallback): %.6f, %.6f", _lat, _lng)
             return float(str(_lat)), float(str(_lng))
     except ImportError:
         log.warning("geocoder not installed — using env fallback. Install with: pip install geocoder")
@@ -434,8 +448,8 @@ def get_realtime_gps():
         log.warning("GPS lookup failed: %s — using env fallback", exc)
 
     # Fallback to environment variables
-    lat = float(str(os.getenv("DEFAULT_LAT", "0.0")))
-    lng = float(str(os.getenv("DEFAULT_LNG", "0.0")))
+    lat = float(str(os.getenv("DEFAULT_LAT", "8.682450")))
+    lng = float(str(os.getenv("DEFAULT_LNG", "77.727152")))
     return lat, lng
 
 

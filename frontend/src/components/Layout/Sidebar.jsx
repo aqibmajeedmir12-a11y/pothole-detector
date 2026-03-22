@@ -1,9 +1,10 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Map, BarChart3, Shield, Radio, 
-  Bell, ChevronLeft, ChevronRight, Activity, Camera, Settings, FileText
+  Bell, ChevronLeft, ChevronRight, Activity, Camera, Settings, FileText, ShieldCheck
 } from 'lucide-react';
 import { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -19,6 +20,20 @@ const navItems = [
 export default function Sidebar({ unreadAlerts = 0 }) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { user } = useAuth();
+  
+  const role = user?.role || 'admin';
+  const visibleNavItems = navItems.filter(item => {
+    if (role === 'admin') return true;
+    return item.label === 'Dashboard' || item.label === 'Settings';
+  });
+
+  if (user?.superadmin) {
+    // Check if it already has Access Control so we don't duplicate on re-renders
+    if (!visibleNavItems.find(i => i.label === 'Access Control')) {
+      visibleNavItems.push({ path: '/access', icon: ShieldCheck, label: 'Access Control' });
+    }
+  }
 
   return (
     <>
@@ -46,7 +61,7 @@ export default function Sidebar({ unreadAlerts = 0 }) {
 
         {/* Navigation */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navItems.map(({ path, icon: Icon, label }) => (
+          {visibleNavItems.map(({ path, icon: Icon, label }) => (
             <NavLink
               key={path}
               to={path}

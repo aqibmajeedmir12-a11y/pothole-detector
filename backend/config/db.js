@@ -71,11 +71,13 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_alerts_read ON alerts(read);
 `);
 
-// Migration: add estimation columns (idempotent)
+// Migration: add estimation columns and location details (idempotent)
 const migrationColumns = [
   { name: 'area',   sql: 'ALTER TABLE potholes ADD COLUMN area REAL DEFAULT 0' },
   { name: 'volume', sql: 'ALTER TABLE potholes ADD COLUMN volume REAL DEFAULT 0' },
   { name: 'cost',   sql: 'ALTER TABLE potholes ADD COLUMN cost INTEGER DEFAULT 0' },
+  { name: 'state',  sql: 'ALTER TABLE potholes ADD COLUMN state TEXT' },
+  { name: 'district', sql: 'ALTER TABLE potholes ADD COLUMN district TEXT' },
 ];
 for (const col of migrationColumns) {
   try { db.exec(col.sql); } catch (_) { /* column already exists */ }

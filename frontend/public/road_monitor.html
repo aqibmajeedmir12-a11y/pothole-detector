@@ -321,6 +321,27 @@ header::after {
 }
 .toast.success { border-color:var(--safe); color:var(--safe); }
 .toast.error   { border-color:var(--danger); color:var(--danger); }
+
+/* ── Citizen View Override ── */
+.citizen-view header,
+.citizen-view .stats-bar,
+.citizen-view .sidebar,
+.citizen-view .refresh-ring {
+  display: none !important;
+}
+.citizen-view .layout {
+  display: block !important;
+  height: 100vh !important;
+  width: 100vw !important;
+}
+.citizen-view #map {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 100 !important;
+}
 </style>
 </head>
 <body>
@@ -380,6 +401,7 @@ header::after {
         <div class="gps-bar-track"><div class="gps-bar-fill" id="gpsBarFill" style="width:0%"></div></div>
       </div>
       <button class="pin-btn" id="pinBtn">📍 CLICK MAP TO SET LOCATION</button>
+      <button class="pin-btn" id="recenterBtn" style="margin-top:8px; border-color:var(--info); color:var(--info);">🎯 RE-CENTER ON ME</button>
     </div>
 
     <!-- Alert -->
@@ -434,6 +456,58 @@ let countdown        = REFRESH_INTERVAL_MS / 1000;
 let alertTimeout     = null;
 
 const STORAGE_KEY = "sm_potholes_v2";
+
+// ── CITIZEN OVERRIDE ───────────────────────────────────────
+if (new URLSearchParams(window.location.search).get('view') === 'citizen') {
+  document.documentElement.classList.add('citizen-view');
+  
+  window.addEventListener('DOMContentLoaded', () => {
+    // Save the Recenter button before its parent gets hidden
+    const rb = document.getElementById("recenterBtn");
+    rb.style.position = "fixed";
+    rb.style.bottom = "30px";
+    rb.style.right = "30px";
+    rb.style.width = "auto";
+    rb.style.padding = "12px 24px";
+    rb.style.zIndex = "999";
+    rb.style.backgroundColor = "var(--panel)";
+    rb.style.border = "1px solid var(--info)";
+    rb.style.borderRadius = "8px";
+    rb.style.boxShadow = "0 8px 32px rgba(0,0,0,0.6)";
+    document.body.appendChild(rb);
+
+    // Save the "Click Map to Set Location" pin button
+    const pinBtn = document.getElementById("pinBtn");
+    pinBtn.style.position = "fixed";
+    pinBtn.style.bottom = "85px";
+    pinBtn.style.right = "30px";
+    pinBtn.style.width = "auto";
+    pinBtn.style.padding = "12px 24px";
+    pinBtn.style.zIndex = "999";
+    pinBtn.style.backgroundColor = "var(--panel)";
+    pinBtn.style.border = "1px solid var(--accent)";
+    pinBtn.style.color = "var(--accent)";
+    pinBtn.style.borderRadius = "8px";
+    pinBtn.style.boxShadow = "0 8px 32px rgba(0,0,0,0.6)";
+    document.body.appendChild(pinBtn);
+
+    const toast = document.getElementById("toast");
+    toast.style.bottom = "90px";
+    
+    // Float the Alert Banner natively over the map (top right for citizens)
+    const banner = document.getElementById("alertBanner");
+    banner.style.position = "fixed";
+    banner.style.top = "20px";
+    banner.style.left = "auto";
+    banner.style.right = "20px";
+    banner.style.transform = "none";
+    banner.style.zIndex = "1000";
+    banner.style.width = "400px";
+    banner.style.maxWidth = "calc(100vw - 40px)";
+    banner.style.boxShadow = "0 8px 32px rgba(255,23,68,0.5)";
+    document.body.appendChild(banner);
+  });
+}
 
 // ── HELPERS ───────────────────────────────────────────────
 function loadStorage() {
@@ -498,9 +572,91 @@ function setGPSSource(type) {
   badge.className   = "gps-source-badge " + type;
 }
 
+// ── PROXIMITY ALERTS ────────────────────────────────────────
+let lastDistAlert = 0;
+function checkProximity(lat, lng) {
+  if (!storedPotholes || storedPotholes.length === 0) return;
+  const now = Date.now();
+  if (now - lastDistAlert < 3000) return; // 3 sec absolute cooldown
+
+  const R = 6371e3; // Earth radius in meters
+  for (const p of storedPotholes) {
+    if (p.status === 'repaired') continue;
+    
+    // Pure Haversine Calculation
+    const dLat = (p.lat - lat) * Math.PI / 180;
+    const dLng = (p.lng - lng) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat * Math.PI / 180) * Math.cos(p.lat * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    const dist = R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+
+    if (dist < 100) {
+      const msg = `Sir here is pothole... ${p.severity || 'high'} severity. Please drive slowly! (${Math.round(dist)}m away)`;
+      showAlert({ lat: p.lat, lng: p.lng, conf: p.conf, customMsg: msg });
+      
+      // Dispatch immediately to React Parent, which populates the Notification Bell and handles ServiceWorker HW Pushes
+      window.parent.postMessage({ type: 'POTHOLE_PROXIMITY', msg: msg, severity: p.severity || 'high', id: p.entryId }, '*');
+      
+      // Fallback Attempt desktop notification locally (if not inside cross-origin iframe)
+      if ("Notification" in window) {
+        if (Notification.permission === "granted") {
+          new Notification("⚠️ POTHOLE NEARBY ZONE ⚠️", { body: msg, icon: "/vite.svg" });
+        } else if (Notification.permission !== "denied") {
+          Notification.requestPermission();
+        }
+      }
+      
+      // Flash the map red as an ultimate fail-safe
+      document.body.style.backgroundColor = "rgba(220, 38, 38, 0.4)";
+      setTimeout(() => document.body.style.backgroundColor = "#0f172a", 600);
+      
+      lastDistAlert = now;
+      break;
+    }
+  }
+}
+
+
+// ── PROXIMITY STATS CALCULATION ─────────────────────────────────
+function broadcastStats() {
+  if (!currentPos || !storedPotholes) return;
+  if (new URLSearchParams(window.location.search).get('view') !== 'citizen') return; // only broadcast to Citizen
+
+  let nearbyCount = 0;
+  let criticalCount = 0;
+  const R = 6371e3;
+  storedPotholes.forEach(p => {
+    if (p.status === 'repaired') return;
+    const dLat = (p.lat - currentPos.lat) * Math.PI / 180;
+    const dLng = (p.lng - currentPos.lng) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(currentPos.lat * Math.PI / 180) * Math.cos(p.lat * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    const dist = R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+    
+    // Nearby = within 15km
+    if (dist <= 15000) {
+      nearbyCount++;
+      const isCritical = p.severity === 'critical' || p.severity === 'high' || (p.conf && p.conf > 0.65);
+      if (isCritical) criticalCount++;
+    }
+  });
+
+  window.parent.postMessage({
+    type: 'POTHOLE_STATS',
+    nearbyCount,
+    criticalCount
+  }, '*');
+}
+
 function applyPosition(lat, lng, accuracy, speed, heading, source) {
   currentPos = { lat, lng, accuracy: accuracy ?? 50,
                  speed: speed ?? null, heading: heading ?? null };
+                 
+  // Trigger proximity checks and broadcast dashboard UI stats instantly
+  checkProximity(lat, lng);
+  broadcastStats();
 
   document.getElementById("gpsLat").textContent    = lat.toFixed(6);
   document.getElementById("gpsLng").textContent    = lng.toFixed(6);
@@ -621,6 +777,17 @@ function enableManualPin() {
 
 document.getElementById("pinBtn").addEventListener("click", enableManualPin);
 
+document.getElementById("recenterBtn").addEventListener("click", () => {
+  if (currentPos && currentPos.lat && currentPos.lng) {
+    map.panTo(new google.maps.LatLng(currentPos.lat, currentPos.lng));
+    map.setZoom(18);
+    showToast("Re-centered on your location", "success");
+  } else {
+    showToast("Location not acquired yet", "error");
+    startGPS();
+  }
+});
+
 // ── POTHOLE MARKER ────────────────────────────────────────
 function createPotholeIcon(severity) {
   // severity 0-1 derived from confidence
@@ -685,7 +852,7 @@ function addLogEntry(pthole) {
 
 function showAlert(pthole) {
   const banner = document.getElementById("alertBanner");
-  document.getElementById("alertBody").textContent =
+  document.getElementById("alertBody").textContent = pthole.customMsg ? pthole.customMsg :
     `@ ${pthole.lat.toFixed(5)}, ${pthole.lng.toFixed(5)} — conf ${
       pthole.conf ? (pthole.conf*100).toFixed(1)+"%" : "—"}`;
   banner.classList.add("visible");
@@ -695,7 +862,13 @@ function showAlert(pthole) {
 
 // ── BACKEND API — load all potholes from the database ──────
 function loadBackendPotholes() {
-  fetch(`${BACKEND_API_URL}/api/potholes?limit=100`)
+  const urlParams = new URLSearchParams(window.location.search);
+  const state = urlParams.get('state');
+  const district = urlParams.get('district');
+  const qState = (state && state !== 'undefined') ? `&state=${encodeURIComponent(state)}` : '';
+  const qDistrict = (district && district !== 'undefined') ? `&district=${encodeURIComponent(district)}` : '';
+
+  fetch(`${BACKEND_API_URL}/api/potholes?limit=100${qState}${qDistrict}`)
     .then(r => {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
@@ -706,6 +879,8 @@ function loadBackendPotholes() {
 
       potholes.forEach(p => {
         if (!p.lat || !p.lng) return;
+        // Skip repaired potholes — they should not appear on the map
+        if (p.status === 'repaired') return;
 
         const pthole = {
           entryId: 'db-' + p.id,
@@ -736,6 +911,8 @@ function loadBackendPotholes() {
           bumpStat("statConf", (lp.conf * 100).toFixed(1) + "%");
         showToast(`Loaded ${potholes.length} pothole(s) from database`, "success");
       }
+      
+      broadcastStats();
     })
     .catch(err => {
       console.error("Backend API error:", err);
@@ -769,10 +946,9 @@ function loadThingSpeakData() {
 
         if (feed.field2 !== "1") return;  // only confirmed potholes
 
-        // ── Real GPS: use device location at time of detection
-        // field4 / field5 are lat/lng if sent from Python; fall back to device GPS
-        let lat = parseFloat(feed.field4);
-        let lng = parseFloat(feed.field5);
+        // field5 / field6 are lat/lng if sent from ESP32/Python; fall back to device GPS
+        let lat = parseFloat(feed.field5);
+        let lng = parseFloat(feed.field6);
 
         if (isNaN(lat) || isNaN(lng)) {
           // Fall back to device's current GPS position
@@ -815,6 +991,8 @@ function loadThingSpeakData() {
         map.panTo(new google.maps.LatLng(lp.lat, lp.lng));
         map.setZoom(POTHOLE_ZOOM);
       }
+      
+      broadcastStats();
     })
     .catch(err => {
       ring.classList.remove("spinning");

@@ -11,7 +11,7 @@ export default function StatsCards({ stats }) {
 
   const cards = [
     {
-      title: 'Total Potholes',
+      title: 'Active Potholes',
       value: stats.potholes?.total || 0,
       subtitle: `${stats.potholes?.todayDetections || 0} today`,
       icon: '🕳️',

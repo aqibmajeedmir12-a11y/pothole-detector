@@ -30,7 +30,7 @@ export const sensorAPI = {
 
 // Analytics endpoints
 export const analyticsAPI = {
-  getStats: () => api.get('/analytics'),
+  getStats: (params = {}) => api.get('/analytics', { params }),
 };
 
 // Admin endpoints
@@ -44,7 +44,7 @@ export const adminAPI = {
 
 // Reports endpoints
 export const reportsAPI = {
-  getReport: (period) => api.get('/reports', { params: { period } }),
+  getReport: (period, params = {}) => api.get('/reports', { params: { period, ...params } }),
 };
 
 // ThingSpeak endpoints

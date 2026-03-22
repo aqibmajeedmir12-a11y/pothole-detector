@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { MapPin, Clock, Camera, AlertTriangle, ExternalLink, Trash2, RefreshCw, ImageOff, Wrench, IndianRupee } from 'lucide-react';
 import { potholeAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const severityColors = {
   critical: 'border-red-500/40 bg-red-500/10',
@@ -17,6 +18,7 @@ const severityBadge = {
 };
 
 export default function DetectionsPage() {
+  const { user } = useAuth();
   const [detections, setDetections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -24,7 +26,12 @@ export default function DetectionsPage() {
   const fetchDetections = async () => {
     try {
       setLoading(true);
-      const res = await potholeAPI.getAll({ limit: 50 });
+      const limitParam = 50;
+      const res = await potholeAPI.getAll({ 
+        limit: limitParam, 
+        state: user?.state, 
+        district: user?.district 
+      });
       const data = res.data?.data || res.data || [];
       setDetections(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -36,7 +43,7 @@ export default function DetectionsPage() {
 
   useEffect(() => {
     fetchDetections();
-  }, []);
+  }, [user?.state, user?.district]);
 
   const formatDate = (ts) => {
     if (!ts) return '—';
@@ -70,9 +77,9 @@ export default function DetectionsPage() {
       </div>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {['critical', 'high', 'medium', 'low'].map(sev => {
-          const count = detections.filter(d => d.severity === sev).length;
+          const count = detections.filter(d => d.severity === sev && d.status !== 'repaired').length;
           return (
             <div key={sev} className={`glass-card p-4 text-center border ${severityColors[sev]}`}>
               <p className="text-2xl font-bold text-white">{count}</p>
@@ -80,6 +87,10 @@ export default function DetectionsPage() {
             </div>
           );
         })}
+        <div className="glass-card p-4 text-center border border-emerald-500/40 bg-emerald-500/10">
+          <p className="text-2xl font-bold text-white">{detections.filter(d => d.status === 'repaired').length}</p>
+          <p className="text-xs text-gray-500 capitalize mt-1">Repaired</p>
+        </div>
       </div>
 
       {/* Detection cards grid */}
@@ -96,7 +107,7 @@ export default function DetectionsPage() {
           {detections.map((det) => (
             <div
               key={det.id}
-              className={`glass-card overflow-hidden group hover:ring-1 hover:ring-primary-500/30 transition-all cursor-pointer`}
+              className={`glass-card overflow-hidden group hover:ring-1 hover:ring-primary-500/30 transition-all cursor-pointer ${det.status === 'repaired' ? 'opacity-75' : ''}`}
               onClick={() => setSelectedImage(det)}
             >
               {/* Image area */}
@@ -114,10 +125,19 @@ export default function DetectionsPage() {
                   <span className="text-xs text-gray-600">No image captured</span>
                 </div>
 
+                {/* Repaired overlay */}
+                {det.status === 'repaired' && (
+                  <div className="absolute inset-0 bg-emerald-900/50 flex items-center justify-center">
+                    <span className="text-emerald-300 font-bold text-lg uppercase tracking-wider bg-emerald-900/80 px-4 py-2 rounded-xl border border-emerald-400/30">
+                      ✅ Repaired
+                    </span>
+                  </div>
+                )}
+
                 {/* Severity badge overlay */}
                 <div className="absolute top-2 right-2">
-                  <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-lg border ${severityBadge[det.severity] || severityBadge.medium}`}>
-                    {det.severity}
+                  <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-lg border ${det.status === 'repaired' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : (severityBadge[det.severity] || severityBadge.medium)}`}>
+                    {det.status === 'repaired' ? 'repaired' : det.severity}
                   </span>
                 </div>
 
@@ -145,11 +165,13 @@ export default function DetectionsPage() {
                     <Clock className="w-3 h-3" />
                     <span>{formatDate(det.detected_at)}</span>
                   </div>
-                  {det.confidence > 0 && (
+                  {det.status === 'repaired' ? (
+                    <span className="text-emerald-400 font-medium">Repaired</span>
+                  ) : det.confidence > 0 ? (
                     <span className="text-primary-400 font-medium">
                       {Math.round(det.confidence * 100)}%
                     </span>
-                  )}
+                  ) : null}
                 </div>
 
                 {/* Repair Estimation */}
@@ -197,9 +219,16 @@ export default function DetectionsPage() {
             <div className="p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold text-white">Pothole #{selectedImage.id}</h3>
-                <span className={`text-xs font-bold uppercase px-2.5 py-1 rounded-lg border ${severityBadge[selectedImage.severity] || severityBadge.medium}`}>
-                  {selectedImage.severity}
-                </span>
+                <div className="flex items-center gap-2">
+                  {selectedImage.status === 'repaired' && (
+                    <span className="text-xs font-bold uppercase px-2.5 py-1 rounded-lg border bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                      ✅ Repaired
+                    </span>
+                  )}
+                  <span className={`text-xs font-bold uppercase px-2.5 py-1 rounded-lg border ${severityBadge[selectedImage.severity] || severityBadge.medium}`}>
+                    {selectedImage.severity}
+                  </span>
+                </div>
               </div>
 
               <p className="text-sm text-gray-400">{selectedImage.description || 'Pothole detected by AI system'}</p>
