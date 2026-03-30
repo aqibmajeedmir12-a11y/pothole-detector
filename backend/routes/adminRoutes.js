@@ -4,9 +4,9 @@ const Pothole = require('../models/Pothole');
 const Alert = require('../models/Alert');
 
 // PATCH /api/admin/pothole/:id - Manage pothole (mark repaired, add notes)
-router.patch('/pothole/:id', (req, res) => {
+router.patch('/pothole/:id', async (req, res) => {
   try {
-    const existing = Pothole.findById(req.params.id);
+    const existing = await Pothole.findById(req.params.id);
     if (!existing) {
       return res.status(404).json({ error: 'Pothole not found' });
     }
@@ -18,7 +18,7 @@ router.patch('/pothole/:id', (req, res) => {
     
     if (req.body.status === 'repaired') {
       updates.repairedAt = new Date().toISOString();
-      Alert.create({
+      await Alert.create({
         potholeId: parseInt(req.params.id),
         message: `Pothole #${req.params.id} at ${existing.road_name || `${existing.lat}, ${existing.lng}`} has been repaired`,
         type: 'repair'
@@ -26,14 +26,14 @@ router.patch('/pothole/:id', (req, res) => {
     }
 
     if (req.body.status === 'in_repair') {
-      Alert.create({
+      await Alert.create({
         potholeId: parseInt(req.params.id),
         message: `Repair started for pothole #${req.params.id} at ${existing.road_name || `${existing.lat}, ${existing.lng}`}`,
         type: 'severity_change'
       });
     }
 
-    const updated = Pothole.update(req.params.id, updates);
+    const updated = await Pothole.update(req.params.id, updates);
 
     // Broadcast update
     const io = req.app.get('io');
@@ -49,10 +49,11 @@ router.patch('/pothole/:id', (req, res) => {
 });
 
 // GET /api/admin/potholes - Get all potholes with full details for admin
-router.get('/potholes', (req, res) => {
+router.get('/potholes', async (req, res) => {
   try {
-    const { status, severity } = req.query;
-    const potholes = Pothole.findAll({ status, severity });
+    const { status, severity, limit } = req.query;
+    const safeLimit = limit ? parseInt(limit) : 500;
+    const potholes = await Pothole.findAll({ status, severity, limit: safeLimit });
     res.json({ success: true, count: potholes.length, data: potholes });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
@@ -60,10 +61,10 @@ router.get('/potholes', (req, res) => {
 });
 
 // GET /api/admin/alerts - Get alerts
-router.get('/alerts', (req, res) => {
+router.get('/alerts', async (req, res) => {
   try {
-    const alerts = Alert.findAll(parseInt(req.query.limit) || 50);
-    const unreadCount = Alert.getUnreadCount();
+    const alerts = await Alert.findAll(parseInt(req.query.limit) || 50);
+    const unreadCount = await Alert.getUnreadCount();
     res.json({ success: true, unreadCount, data: alerts });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
@@ -71,9 +72,9 @@ router.get('/alerts', (req, res) => {
 });
 
 // POST /api/admin/alerts/read - Mark all alerts as read
-router.post('/alerts/read', (req, res) => {
+router.post('/alerts/read', async (req, res) => {
   try {
-    Alert.markAllRead();
+    await Alert.markAllRead();
     res.json({ success: true, message: 'All alerts marked as read' });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
@@ -81,9 +82,9 @@ router.post('/alerts/read', (req, res) => {
 });
 
 // POST /api/admin/alerts/:id/read - Mark single alert as read
-router.post('/alerts/:id/read', (req, res) => {
+router.post('/alerts/:id/read', async (req, res) => {
   try {
-    Alert.markRead(req.params.id);
+    await Alert.markRead(req.params.id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });

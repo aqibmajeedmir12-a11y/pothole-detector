@@ -5,7 +5,7 @@ const Pothole = require('../models/Pothole');
 const Alert = require('../models/Alert');
 
 // POST /api/sensor - Receive vibration data from ESP32
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { deviceId, vibrationLevel, lat, lng, potholeDetected } = req.body;
 
@@ -13,7 +13,7 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'deviceId and vibrationLevel are required' });
     }
 
-    const sensorData = SensorData.create({
+    const sensorData = await SensorData.create({
       deviceId,
       vibrationLevel: parseFloat(vibrationLevel),
       lat: lat ? parseFloat(lat) : null,
@@ -25,7 +25,7 @@ router.post('/', (req, res) => {
     if (potholeDetected && lat && lng) {
       const severity = vibrationLevel > 80 ? 'critical' : vibrationLevel > 60 ? 'high' : vibrationLevel > 40 ? 'medium' : 'low';
       
-      const pothole = Pothole.create({
+      const pothole = await Pothole.create({
         lat: parseFloat(lat),
         lng: parseFloat(lng),
         severity,
@@ -34,7 +34,7 @@ router.post('/', (req, res) => {
         confidence: Math.min(vibrationLevel / 100, 1)
       });
 
-      Alert.create({
+      await Alert.create({
         potholeId: pothole.id,
         message: `ESP32 sensor ${deviceId} detected pothole (vibration: ${vibrationLevel})`,
         type: 'detection'
@@ -61,14 +61,14 @@ router.post('/', (req, res) => {
 });
 
 // GET /api/sensors - Get recent sensor readings
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { limit, deviceId } = req.query;
     let data;
     if (deviceId) {
-      data = SensorData.findByDevice(deviceId, parseInt(limit) || 100);
+      data = await SensorData.findByDevice(deviceId, parseInt(limit) || 100);
     } else {
-      data = SensorData.findRecent(parseInt(limit) || 50);
+      data = await SensorData.findRecent(parseInt(limit) || 50);
     }
     res.json({ success: true, count: data.length, data });
   } catch (error) {
@@ -77,10 +77,10 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/sensors/trends - Get vibration trends
-router.get('/trends', (req, res) => {
+router.get('/trends', async (req, res) => {
   try {
     const hours = parseInt(req.query.hours) || 24;
-    const trends = SensorData.getVibrationTrends(hours);
+    const trends = await SensorData.getVibrationTrends(hours);
     res.json({ success: true, data: trends });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
@@ -88,9 +88,9 @@ router.get('/trends', (req, res) => {
 });
 
 // GET /api/sensors/devices - Get active devices
-router.get('/devices', (req, res) => {
+router.get('/devices', async (req, res) => {
   try {
-    const devices = SensorData.getActiveDevices();
+    const devices = await SensorData.getActiveDevices();
     res.json({ success: true, data: devices });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });

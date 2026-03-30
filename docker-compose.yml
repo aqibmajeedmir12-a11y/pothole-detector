@@ -5,12 +5,8 @@ services:
     build: ./backend
     ports:
       - "5001:5001"
-    environment:
-      - PORT=5001
-      - API_KEY=5HXILJIDPZS4TPPG
-      - FRONTEND_URL=http://localhost:3000
-    volumes:
-      - backend_data:/app/data
+    env_file:
+      - ./backend/.env
     restart: unless-stopped
 
   frontend:
@@ -27,12 +23,10 @@ services:
       - "8000:8000"
     environment:
       - BACKEND_URL=http://backend:5001
-      - API_KEY=5HXILJIDPZS4TPPG
       - HEADLESS=true
       - MODEL_PATH=best.pt
+    env_file:
+      - ./backend/.env
     depends_on:
       - backend
     restart: unless-stopped
-
-volumes:
-  backend_data:

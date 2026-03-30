@@ -1,137 +1,219 @@
-const db = require('../config/db');
+const supabase = require('../config/db');
 
 const Pothole = {
-  create(data) {
-    const stmt = db.prepare(`
-      INSERT INTO potholes (lat, lng, severity, source, image_url, description, status, detected_at, road_name, confidence, area, volume, cost, state, district)
-      VALUES (@lat, @lng, @severity, @source, @imageUrl, @description, @status, @detectedAt, @roadName, @confidence, @area, @volume, @cost, @state, @district)
-    `);
-    const result = stmt.run({
+  async create(data) {
+    const record = {
       lat: data.lat,
       lng: data.lng,
       severity: data.severity || 'medium',
       source: data.source || 'manual',
-      imageUrl: data.imageUrl || null,
+      image_url: data.imageUrl || null,
       description: data.description || null,
       status: data.status || 'detected',
-      detectedAt: data.detectedAt || new Date().toISOString(),
-      roadName: data.roadName || null,
+      detected_at: data.detectedAt || new Date().toISOString(),
+      road_name: data.roadName || null,
       confidence: data.confidence || 0,
       area: data.area || 0,
       volume: data.volume || 0,
       cost: data.cost || 0,
       state: data.state || null,
-      district: data.district || null
-    });
-    return { id: result.lastInsertRowid, ...data };
+      district: data.district || null,
+    };
+
+    const { data: rows, error } = await supabase
+      .from('potholes')
+      .insert(record)
+      .select()
+      .single();
+
+    if (error) throw new Error(`Pothole.create failed: ${error.message}`);
+    return rows;
   },
 
-  findAll(filters = {}) {
-    let query = 'SELECT * FROM potholes WHERE 1=1';
-    const params = {};
+  async findAll(filters = {}) {
+    let query = supabase.from('potholes').select('*');
 
-    if (filters.status) {
-      query += ' AND status = @status';
-      params.status = filters.status;
-    }
-    if (filters.severity) {
-      query += ' AND severity = @severity';
-      params.severity = filters.severity;
-    }
-    if (filters.source) {
-      query += ' AND source = @source';
-      params.source = filters.source;
-    }
-    if (filters.state) {
-      query += ' AND LOWER(state) LIKE LOWER(@state)';
-      params.state = '%' + filters.state + '%';
-    }
-    if (filters.district) {
-      query += ' AND LOWER(district) LIKE LOWER(@district)';
-      params.district = '%' + filters.district + '%';
-    }
+    if (filters.status)   query = query.eq('status', filters.status);
+    if (filters.severity)  query = query.eq('severity', filters.severity);
+    if (filters.source)    query = query.eq('source', filters.source);
+    if (filters.state)     query = query.ilike('state', `%${filters.state}%`);
+    if (filters.district)  query = query.ilike('district', `%${filters.district}%`);
 
-    query += ' ORDER BY detected_at DESC';
+    query = query.order('detected_at', { ascending: false });
 
     if (filters.limit) {
-      query += ' LIMIT @limit';
-      params.limit = parseInt(filters.limit);
+      query = query.limit(parseInt(filters.limit, 10));
     }
 
-    return db.prepare(query).all(params);
+    const { data: rows, error } = await query;
+    if (error) throw new Error(`Pothole.findAll failed: ${error.message}`);
+    return rows || [];
   },
 
-  findById(id) {
-    return db.prepare('SELECT * FROM potholes WHERE id = ?').get(id);
+  async findNearbyActive(lat, lng, maxDistanceMeters = 20) {
+    const latDiff = maxDistanceMeters / 111139;
+    const lngDiff = maxDistanceMeters / (111139 * Math.cos(lat * Math.PI / 180));
+
+    const { data: candidates, error } = await supabase
+      .from('potholes')
+      .select('*')
+      .neq('status', 'repaired')
+      .gte('lat', lat - latDiff)
+      .lte('lat', lat + latDiff)
+      .gte('lng', lng - lngDiff)
+      .lte('lng', lng + lngDiff);
+
+    if (error) throw new Error(`Pothole.findNearbyActive failed: ${error.message}`);
+    if (!candidates || candidates.length === 0) return null;
+
+    const R = 6371e3;
+    let closest = null;
+    let minD = maxDistanceMeters;
+
+    for (const p of candidates) {
+      const pLat = parseFloat(p.lat);
+      const pLng = parseFloat(p.lng);
+      const dLat = (pLat - lat) * Math.PI / 180;
+      const dLng = (pLng - lng) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(lat * Math.PI / 180) * Math.cos(pLat * Math.PI / 180) *
+                Math.sin(dLng / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const d = R * c;
+
+      if (d <= minD) {
+        minD = d;
+        closest = p;
+      }
+    }
+
+    return closest;
   },
 
-  update(id, data) {
-    const fields = [];
-    const params = { id };
+  async findById(id) {
+    const parsedId = parseInt(id, 10);
+    if (isNaN(parsedId)) return null;
 
-    if (data.status !== undefined) { fields.push('status = @status'); params.status = data.status; }
-    if (data.severity !== undefined) { fields.push('severity = @severity'); params.severity = data.severity; }
-    if (data.maintenanceNotes !== undefined) { fields.push('maintenance_notes = @maintenanceNotes'); params.maintenanceNotes = data.maintenanceNotes; }
-    if (data.repairedAt !== undefined) { fields.push('repaired_at = @repairedAt'); params.repairedAt = data.repairedAt; }
-    if (data.description !== undefined) { fields.push('description = @description'); params.description = data.description; }
+    const { data, error } = await supabase
+      .from('potholes')
+      .select('*')
+      .eq('id', parsedId)
+      .single();
 
-    fields.push("updated_at = datetime('now')");
-
-    if (fields.length === 1) return this.findById(id); // only updated_at, nothing to change
-
-    const stmt = db.prepare(`UPDATE potholes SET ${fields.join(', ')} WHERE id = @id`);
-    stmt.run(params);
-    return this.findById(id);
+    if (error) {
+      if (error.code === 'PGRST116') return null; // not found
+      throw new Error(`Pothole.findById failed: ${error.message}`);
+    }
+    return data;
   },
 
-  delete(id) {
-    return db.prepare('DELETE FROM potholes WHERE id = ?').run(id);
+  async update(id, data) {
+    const parsedId = parseInt(id, 10);
+    if (isNaN(parsedId)) throw new Error('Invalid pothole ID');
+
+    const fields = {};
+    if (data.status !== undefined)          fields.status = data.status;
+    if (data.severity !== undefined)        fields.severity = data.severity;
+    if (data.maintenanceNotes !== undefined) fields.maintenance_notes = data.maintenanceNotes;
+    if (data.repairedAt !== undefined)       fields.repaired_at = data.repairedAt;
+    if (data.description !== undefined)     fields.description = data.description;
+    if (data.confidence !== undefined)      fields.confidence = data.confidence;
+    if (data.imageUrl !== undefined)        fields.image_url = data.imageUrl;
+    if (data.state !== undefined)           fields.state = data.state;
+    if (data.district !== undefined)        fields.district = data.district;
+    if (data.roadName !== undefined)        fields.road_name = data.roadName;
+    if (data.detectedAt !== undefined)      fields.detected_at = data.detectedAt;
+
+    if (Object.keys(fields).length === 0) return this.findById(parsedId);
+
+    // updated_at is set automatically by the database trigger
+    const { data: updated, error } = await supabase
+      .from('potholes')
+      .update(fields)
+      .eq('id', parsedId)
+      .select()
+      .single();
+
+    if (error) throw new Error(`Pothole.update failed: ${error.message}`);
+    return updated;
   },
 
-  getStats(filters = {}) {
-    let w = "WHERE 1=1";
-    let p = {};
-    if (filters.state) { w += " AND LOWER(state) LIKE LOWER(@state)"; p.state = '%' + filters.state + '%'; }
-    if (filters.district) { w += " AND LOWER(district) LIKE LOWER(@district)"; p.district = '%' + filters.district + '%'; }
+  async delete(id) {
+    const parsedId = parseInt(id, 10);
+    if (isNaN(parsedId)) throw new Error('Invalid pothole ID');
 
-    const total = db.prepare(`SELECT COUNT(*) as count FROM potholes ${w}`).get(p).count;
-    const active = db.prepare(`SELECT COUNT(*) as count FROM potholes ${w} AND status != 'repaired'`).get(p).count;
-    const detected = db.prepare(`SELECT COUNT(*) as count FROM potholes ${w} AND status = 'detected'`).get(p).count;
-    const confirmed = db.prepare(`SELECT COUNT(*) as count FROM potholes ${w} AND status = 'confirmed'`).get(p).count;
-    const inRepair = db.prepare(`SELECT COUNT(*) as count FROM potholes ${w} AND status = 'in_repair'`).get(p).count;
-    const repaired = db.prepare(`SELECT COUNT(*) as count FROM potholes ${w} AND status = 'repaired'`).get(p).count;
-    
-    const severityCounts = db.prepare(`
-      SELECT severity, COUNT(*) as count FROM potholes ${w} AND status != 'repaired' GROUP BY severity
-    `).all(p);
+    const { error } = await supabase
+      .from('potholes')
+      .delete()
+      .eq('id', parsedId);
 
-    const todayDetections = db.prepare(`
-      SELECT COUNT(*) as count FROM potholes ${w} AND status != 'repaired' AND date(detected_at) = date('now')
-    `).get(p).count;
+    if (error) throw new Error(`Pothole.delete failed: ${error.message}`);
+  },
 
-    const recentDetections = db.prepare(`
-      SELECT * FROM potholes ${w} ORDER BY detected_at DESC LIMIT 10
-    `).all(p);
+  async getStats(filters = {}) {
+    // Use the RPC function for efficient aggregation
+    const { data: statsRow, error } = await supabase.rpc('get_pothole_stats', {
+      p_state: filters.state || null,
+      p_district: filters.district || null,
+    });
 
-    // Road health index: based on ratio of repaired vs total, weighted by severity
-    const activeIssues = db.prepare(`
-      SELECT SUM(CASE WHEN severity = 'critical' THEN 25 WHEN severity = 'high' THEN 15 WHEN severity = 'medium' THEN 8 ELSE 3 END) as weighted_score
-      FROM potholes ${w} AND status != 'repaired'
-    `).get(p);
-    
-    const activeWeighted = activeIssues.weighted_score || 0;
+    if (error) throw new Error(`Pothole.getStats failed: ${error.message}`);
+
+    const s = statsRow && statsRow.length > 0 ? statsRow[0] : {
+      total: 0, active: 0, detected: 0, confirmed: 0,
+      in_repair: 0, repaired: 0, today_detections: 0, weighted_score: 0,
+    };
+
+    // Severity counts (separate query — lightweight)
+    let sevQuery = supabase
+      .from('potholes')
+      .select('severity')
+      .neq('status', 'repaired');
+
+    if (filters.state) sevQuery = sevQuery.ilike('state', `%${filters.state}%`);
+    if (filters.district) sevQuery = sevQuery.ilike('district', `%${filters.district}%`);
+
+    const { data: sevRows } = await sevQuery;
+    const sevMap = {};
+    (sevRows || []).forEach(r => {
+      sevMap[r.severity] = (sevMap[r.severity] || 0) + 1;
+    });
+    const severityCounts = Object.entries(sevMap).map(([severity, count]) => ({ severity, count }));
+
+    // Recent detections
+    let recentQuery = supabase
+      .from('potholes')
+      .select('*')
+      .order('detected_at', { ascending: false })
+      .limit(10);
+
+    if (filters.state) recentQuery = recentQuery.ilike('state', `%${filters.state}%`);
+    if (filters.district) recentQuery = recentQuery.ilike('district', `%${filters.district}%`);
+
+    const { data: recentDetections } = await recentQuery;
+
+    const total = parseInt(s.total) || 0;
+    const active = parseInt(s.active) || 0;
+    const repaired = parseInt(s.repaired) || 0;
+    const activeWeighted = parseInt(s.weighted_score) || 0;
     const totalPotholes = total || 1;
     const repairedRatio = total > 0 ? repaired / total : 1;
-    // Blend: 60% based on repair ratio, 40% based on severity density
-    const severityFactor = Math.max(0, 100 - Math.min(100, activeWeighted / Math.max(totalPotholes, 1) * 10));
+    const severityFactor = Math.max(0, 100 - Math.min(100, (activeWeighted / Math.max(totalPotholes, 1)) * 10));
     const roadHealth = Math.max(0, Math.min(100, repairedRatio * 60 + severityFactor * 0.4));
 
     return {
-      total, active, detected, confirmed, inRepair, repaired, severityCounts,
-      todayDetections, recentDetections,
-      roadHealthIndex: Math.round(roadHealth)
+      total,
+      active,
+      detected: parseInt(s.detected) || 0,
+      confirmed: parseInt(s.confirmed) || 0,
+      inRepair: parseInt(s.in_repair) || 0,
+      repaired,
+      severityCounts,
+      todayDetections: parseInt(s.today_detections) || 0,
+      recentDetections: recentDetections || [],
+      roadHealthIndex: Math.round(roadHealth),
     };
-  }
+  },
 };
 
 module.exports = Pothole;

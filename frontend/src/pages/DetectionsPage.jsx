@@ -152,7 +152,7 @@ export default function DetectionsPage() {
               {/* Info */}
               <div className="p-3 space-y-2">
                 <p className="text-sm text-gray-300 font-medium truncate">
-                  {det.road_name || det.description || 'Pothole Detection'}
+                  {(det.district || det.state) ? [det.district, det.state].filter(Boolean).join(', ') : (det.road_name || det.description || 'Pothole Detection')}
                 </p>
 
                 <div className="flex items-center gap-1.5 text-xs text-gray-500">
@@ -257,8 +257,14 @@ export default function DetectionsPage() {
                   <p className="text-sm text-gray-300 mt-1">{formatDate(selectedImage.detected_at)}</p>
                 </div>
               </div>
-
-              {selectedImage.road_name && (
+              {(selectedImage.district || selectedImage.state) ? (
+                <div className="bg-white/5 rounded-xl p-3">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Location (District & State)</p>
+                  <p className="text-sm text-gray-300 mt-1">
+                    {[selectedImage.district, selectedImage.state].filter(Boolean).join(', ')}
+                  </p>
+                </div>
+              ) : selectedImage.road_name && (
                 <div className="bg-white/5 rounded-xl p-3">
                   <p className="text-[10px] text-gray-500 uppercase tracking-wider">Road Name</p>
                   <p className="text-sm text-gray-300 mt-1">{selectedImage.road_name}</p>

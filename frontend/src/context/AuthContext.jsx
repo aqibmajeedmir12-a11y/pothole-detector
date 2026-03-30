@@ -20,6 +20,15 @@ export const AuthProvider = ({ children }) => {
     if (storedUsers) setUsersDb(JSON.parse(storedUsers));
     
     setLoading(false);
+
+    // Sync across tabs
+    const handleStorageChange = (e) => {
+      if (e.key === 'app_users_db') {
+        setUsersDb(e.newValue ? JSON.parse(e.newValue) : []);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   // Internal helper to save users
@@ -38,6 +47,14 @@ export const AuthProvider = ({ children }) => {
     // SuperAdmin bypass
     if (expectedRole === 'admin' && email === 'admin' && password === 'admin123') {
       const session = { role: 'admin', state: '', district: '', email: 'admin@system.local', username: 'SuperAdmin', superadmin: true };
+      localStorage.setItem('auth_session', JSON.stringify(session));
+      setUser(session);
+      return { success: true };
+    }
+
+    // Citizen Mock User bypass (no hardcoded state/district)
+    if (expectedRole === 'citizen' && email === 'user@example.com' && password === 'user123') {
+      const session = { role: 'user', email: 'user@example.com', name: 'Citizen User', username: 'Citizen User', status: 'active' };
       localStorage.setItem('auth_session', JSON.stringify(session));
       setUser(session);
       return { success: true };
@@ -86,16 +103,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const getAllAdmins = () => usersDb.filter(u => u.role === 'admin');
+  const getAllAdmins = () => {
+    const raw = localStorage.getItem('app_users_db');
+    const db = raw ? JSON.parse(raw) : usersDb;
+    return db.filter(u => u.role === 'admin');
+  };
   
   const approveAdmin = (email) => {
-    const updated = usersDb.map(u => (u.email === email && u.role === 'admin') ? { ...u, status: 'active' } : u);
+    const raw = localStorage.getItem('app_users_db');
+    const db = raw ? JSON.parse(raw) : usersDb;
+    const updated = db.map(u => (u.email === email && u.role === 'admin') ? { ...u, status: 'active' } : u);
     setUsersDb(updated);
     localStorage.setItem('app_users_db', JSON.stringify(updated));
   };
   
   const rejectAdmin = (email) => {
-    const updated = usersDb.filter(u => !(u.email === email && u.role === 'admin'));
+    const raw = localStorage.getItem('app_users_db');
+    const db = raw ? JSON.parse(raw) : usersDb;
+    const updated = db.filter(u => !(u.email === email && u.role === 'admin'));
     setUsersDb(updated);
     localStorage.setItem('app_users_db', JSON.stringify(updated));
   };

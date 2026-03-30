@@ -3,6 +3,7 @@ const SensorData = require('../models/SensorData');
 const Pothole = require('../models/Pothole');
 const Alert = require('../models/Alert');
 const { getGeocodeData } = require('../utils/geocode');
+const notificationService = require('./notificationService');
 
 class ThingSpeakService {
   constructor() {
@@ -109,13 +110,14 @@ class ThingSpeakService {
     const lng = parseFloat(entry.field6) || 0;
     const timestamp = entry.created_at;
 
-    // Determine source: if field1 > 1.0, it's ESP32 vibration data
-    // If field1 is 0-1.0, it's AI camera confidence data
-    const isESP32 = this.isVibrationData(field1Value);
+    // Determine source: ESP32 entries have field3 = null (no AI camera data)
+    // AI camera entries have field3 set (box count). This is more reliable than
+    // checking field1 > 1.0, since ESP32 sends 0 when there's no vibration.
+    const isESP32 = entry.field3 === null || entry.field3 === undefined;
 
     if (isESP32) {
       // Store ESP32 vibration sensor data
-      const sensorData = SensorData.create({
+      const sensorData = await SensorData.create({
         deviceId: 'ESP32-VIB-01',
         vibrationLevel: field1Value,
         lat: lat !== 0 ? lat : null,
@@ -124,16 +126,14 @@ class ThingSpeakService {
         potholeDetected
       });
 
-      // Broadcast real-time sensor data via WebSocket
-      if (this.io) {
-        this.io.emit('sensorData', {
-          ...sensorData,
-          source: 'esp32',
-          vibrationLevel: field1Value,
-          potholeDetected,
-          timestamp
-        });
-      }
+      // Broadcast real-time sensor data via WebSocket (admins only)
+      notificationService.emitSensorData({
+        ...sensorData,
+        source: 'esp32',
+        vibrationLevel: field1Value,
+        potholeDetected,
+        timestamp
+      });
 
       // If ESP32 detected a pothole via vibration, create a pothole record
       if (potholeDetected) {
@@ -141,44 +141,76 @@ class ThingSpeakService {
           : field1Value > 60 ? 'high'
           : field1Value > 40 ? 'medium' : 'low';
 
-        let roadName = 'Unknown Location';
-        let state = null;
-        let district = null;
-        
-        if (lat !== 0 && lng !== 0) {
-          const geo = await getGeocodeData(lat, lng);
-          roadName = geo.roadName;
-          state = geo.state;
-          district = geo.district;
-        }
+        let finalLat = lat !== 0 ? lat : 8.6824;
+        let finalLng = lng !== 0 ? lng : 77.7271;
 
-        const pothole = Pothole.create({
-          lat: lat !== 0 ? lat : 8.6824, // Use Thingspeak or default fallback
-          lng: lng !== 0 ? lng : 77.7271, // Use Thingspeak or default fallback
-          severity,
-          source: 'esp32_sensor',
-          roadName: roadName,
-          state: state,
-          district: district,
-          description: `Vibration sensor detected pothole (level: ${field1Value.toFixed(1)})`,
-          confidence: Math.min(field1Value / 100, 1)
-        });
+        const geo = await getGeocodeData(finalLat, finalLng);
+        let roadName = geo.roadName || 'Unknown Location';
+        let state = geo.state;
+        let district = geo.district;
 
-        Alert.create({
-          potholeId: pothole.id,
-          message: `ESP32 vibration sensor detected ${severity} pothole (vibration: ${field1Value.toFixed(1)})`,
-          type: 'detection'
-        });
+        // ── Check for existing nearby pothole (Clustering) ──
+        const existingPothole = await Pothole.findNearbyActive(finalLat, finalLng, 20); // 20 meters
+        let pothole;
 
-        if (this.io) {
-          this.io.emit('newPothole', pothole);
-          this.io.emit('newAlert', {
-            message: `Vibration sensor detected ${severity} pothole`,
-            pothole
+        if (existingPothole) {
+          // Update existing pothole — refresh timestamp + severity + geocoding
+          const updates = {};
+          const severityLevels = { low: 1, medium: 2, high: 3, critical: 4 };
+          if (severityLevels[severity] > severityLevels[existingPothole.severity]) {
+            updates.severity = severity;
+          }
+          const newConf = Math.min(field1Value / 100, 1);
+          if (newConf > existingPothole.confidence) {
+            updates.confidence = newConf;
+          }
+
+          // Fix missing geocoding data on old record
+          if (!existingPothole.state && state) {
+            updates.state = state;
+            updates.district = district;
+            updates.roadName = roadName;
+          }
+
+          // Always update the timestamp so it shows as a recent detection
+          updates.detectedAt = new Date().toISOString();
+          updates.description = `Vibration sensor re-detected pothole (level: ${field1Value.toFixed(1)})`;
+          
+          pothole = await Pothole.update(existingPothole.id, updates);
+
+          const reAlertMsg = `ESP32 sensor re-detected ${pothole.severity || severity} pothole at ${roadName} (vibration: ${field1Value.toFixed(1)})`;
+          await Alert.create({
+            potholeId: pothole.id,
+            message: reAlertMsg,
+            type: 'detection'
           });
-        }
+          
+          notificationService.emitPotholeUpdate(pothole, reAlertMsg);
+          console.log(`🕳️ ESP32 pothole re-detected & updated! ID: ${existingPothole.id}, Vibration: ${field1Value}`);
+        } else {
+          // Create new pothole record
+          pothole = await Pothole.create({
+            lat: finalLat,
+            lng: finalLng,
+            severity,
+            source: 'esp32_sensor',
+            roadName: roadName,
+            state: state,
+            district: district,
+            description: `Vibration sensor detected pothole (level: ${field1Value.toFixed(1)})`,
+            confidence: Math.min(field1Value / 100, 1)
+          });
 
-        console.log(`🕳️ ESP32 pothole detected! Severity: ${severity}, Vibration: ${field1Value}`);
+          const newAlertMsg = `ESP32 vibration sensor detected ${severity} pothole at ${roadName} (vibration: ${field1Value.toFixed(1)})`;
+          await Alert.create({
+            potholeId: pothole.id,
+            message: newAlertMsg,
+            type: 'detection'
+          });
+
+          notificationService.emitPotholeDetection(pothole, newAlertMsg);
+          console.log(`🕳️ New ESP32 pothole created! Severity: ${severity}, Vibration: ${field1Value}`);
+        }
       }
 
       return sensorData;
@@ -186,16 +218,14 @@ class ThingSpeakService {
       // AI camera data (field1 = confidence 0-1.0)
       // DO NOT create pothole records here — the Python script already
       // sends detections directly to POST /api/pothole
-      // Just broadcast telemetry for real-time dashboard updates
-      if (this.io) {
-        this.io.emit('sensorData', {
-          source: 'ai_camera',
-          confidence: field1Value,
-          potholeDetected,
-          boxes: field3Value,
-          timestamp
-        });
-      }
+      // Just broadcast telemetry for real-time dashboard updates (admins only)
+      notificationService.emitSensorData({
+        source: 'ai_camera',
+        confidence: field1Value,
+        potholeDetected,
+        boxes: field3Value,
+        timestamp
+      });
 
       console.log(`📷 AI camera telemetry from ThingSpeak (conf: ${field1Value}, boxes: ${field3Value}) — skipping pothole creation (handled by direct API)`);
       return null;

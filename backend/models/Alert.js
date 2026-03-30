@@ -1,38 +1,75 @@
-const db = require('../config/db');
+const supabase = require('../config/db');
 
 const Alert = {
-  create(data) {
-    const stmt = db.prepare(`
-      INSERT INTO alerts (pothole_id, message, type)
-      VALUES (@potholeId, @message, @type)
-    `);
-    const result = stmt.run({
-      potholeId: data.potholeId || null,
+  async create(data) {
+    const record = {
+      pothole_id: data.potholeId || null,
       message: data.message,
-      type: data.type || 'detection'
-    });
-    return { id: result.lastInsertRowid, ...data };
+      type: data.type || 'detection',
+    };
+
+    const { data: row, error } = await supabase
+      .from('alerts')
+      .insert(record)
+      .select()
+      .single();
+
+    if (error) throw new Error(`Alert.create failed: ${error.message}`);
+    return row;
   },
 
-  findAll(limit = 50) {
-    return db.prepare('SELECT * FROM alerts ORDER BY created_at DESC LIMIT ?').all(limit);
+  async findAll(limit = 50) {
+    const { data: rows, error } = await supabase
+      .from('alerts')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw new Error(`Alert.findAll failed: ${error.message}`);
+    return rows || [];
   },
 
-  findUnread() {
-    return db.prepare("SELECT * FROM alerts WHERE read = 0 ORDER BY created_at DESC").all();
+  async findUnread() {
+    const { data: rows, error } = await supabase
+      .from('alerts')
+      .select('*')
+      .eq('read', 0)
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(`Alert.findUnread failed: ${error.message}`);
+    return rows || [];
   },
 
-  markRead(id) {
-    db.prepare('UPDATE alerts SET read = 1 WHERE id = ?').run(id);
+  async markRead(id) {
+    const parsedId = parseInt(id, 10);
+    if (isNaN(parsedId)) throw new Error('Invalid alert ID');
+
+    const { error } = await supabase
+      .from('alerts')
+      .update({ read: 1 })
+      .eq('id', parsedId);
+
+    if (error) throw new Error(`Alert.markRead failed: ${error.message}`);
   },
 
-  markAllRead() {
-    db.prepare('UPDATE alerts SET read = 1 WHERE read = 0').run();
+  async markAllRead() {
+    const { error } = await supabase
+      .from('alerts')
+      .update({ read: 1 })
+      .eq('read', 0);
+
+    if (error) throw new Error(`Alert.markAllRead failed: ${error.message}`);
   },
 
-  getUnreadCount() {
-    return db.prepare('SELECT COUNT(*) as count FROM alerts WHERE read = 0').get().count;
-  }
+  async getUnreadCount() {
+    const { count, error } = await supabase
+      .from('alerts')
+      .select('*', { count: 'exact', head: true })
+      .eq('read', 0);
+
+    if (error) throw new Error(`Alert.getUnreadCount failed: ${error.message}`);
+    return count || 0;
+  },
 };
 
 module.exports = Alert;

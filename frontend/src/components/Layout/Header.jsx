@@ -41,6 +41,22 @@ export default function Header({ isConnected, notifications = [], onClearNotific
   ];
   const [showNotifs, setShowNotifs] = useState(false);
 
+  // Combine websocket notifications with pending admin notifications for superadmin
+  const pendingAdmins = userSession?.superadmin && typeof useAuth().getAllAdmins === 'function' 
+    ? useAuth().getAllAdmins().filter(a => a.status === 'pending') 
+    : [];
+  
+  const displayNotifications = [
+    ...pendingAdmins.map(admin => ({
+      id: `pending-${admin.email}`,
+      message: `Verification required: District access request for ${admin.district}, ${admin.state} (${admin.email})`,
+      severity: 'high',
+      source: 'admin_registration',
+      timestamp: new Date().toISOString()
+    })),
+    ...(notifications || [])
+  ];
+
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between px-6 py-4 
       bg-dark-950/80 dark:bg-dark-950/80 backdrop-blur-xl border-b border-white/5
@@ -125,9 +141,9 @@ export default function Header({ isConnected, notifications = [], onClearNotific
             className="relative p-2 rounded-xl hover:bg-white/5 transition-colors text-gray-400 hover:text-white"
           >
             <Bell className="w-5 h-5" />
-            {notifications.length > 0 && (
+            {displayNotifications.length > 0 && (
               <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center animate-pulse-soft">
-                {notifications.length}
+                {displayNotifications.length}
               </span>
             )}
           </button>
@@ -139,13 +155,13 @@ export default function Header({ isConnected, notifications = [], onClearNotific
                 <div className="flex items-center gap-2">
                   <Bell className="w-4 h-4 text-primary-400" />
                   <span className="text-sm font-bold text-white">Notifications</span>
-                  {notifications.length > 0 && (
+                  {displayNotifications.length > 0 && (
                     <span className="text-[10px] bg-primary-500/20 text-primary-400 px-1.5 py-0.5 rounded-full font-medium">
-                      {notifications.length}
+                      {displayNotifications.length}
                     </span>
                   )}
                 </div>
-                {notifications.length > 0 && (
+                {displayNotifications.length > 0 && (
                   <button 
                     onClick={() => { onClearNotifications?.(); setShowNotifs(false); }}
                     className="text-xs text-primary-400 hover:text-primary-300 font-medium"
@@ -155,19 +171,19 @@ export default function Header({ isConnected, notifications = [], onClearNotific
                 )}
               </div>
               <div className="overflow-y-auto flex-1">
-                {notifications.length === 0 ? (
+                {displayNotifications.length === 0 ? (
                   <div className="p-8 text-center">
                     <Bell className="w-8 h-8 text-gray-600 mx-auto mb-2" />
                     <p className="text-sm text-gray-500">No notifications yet</p>
                     <p className="text-xs text-gray-600 mt-1">Alerts will appear here when potholes are detected</p>
                   </div>
                 ) : (
-                  notifications.map((notif, i) => {
+                  displayNotifications.map((notif, i) => {
                     const severity = notif.severity || 'medium';
                     const dotColor = severityDot[severity] || severityDot.medium;
                     const SourceIcon = sourceIcon[notif.source] || AlertTriangle;
                     return (
-                      <div key={i} className="p-3 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 flex items-start gap-3">
+                      <div key={notif.id || i} className="p-3 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 flex items-start gap-3">
                         <div className="relative flex-shrink-0 mt-0.5">
                           <SourceIcon className="w-4 h-4 text-gray-400" />
                           <div className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ${dotColor}`} />

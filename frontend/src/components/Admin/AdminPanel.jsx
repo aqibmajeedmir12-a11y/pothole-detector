@@ -115,7 +115,9 @@ export default function AdminPanel({ potholes = [], onUpdate }) {
                     <tr key={p.id} className="table-row">
                       <td className="py-3 px-4 text-gray-400 font-mono">#{p.id}</td>
                       <td className="py-3 px-4">
-                        <p className="text-gray-300 font-medium">{p.road_name || 'Unknown'}</p>
+                        <p className="text-gray-300 font-medium">
+                          {(p.district || p.state) ? [p.district, p.state].filter(Boolean).join(', ') : (p.road_name || 'Unknown')}
+                        </p>
                         <p className="text-xs text-gray-500">{p.lat?.toFixed(4)}, {p.lng?.toFixed(4)}</p>
                       </td>
                       <td className="py-3 px-4 text-center">

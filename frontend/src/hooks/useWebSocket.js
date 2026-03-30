@@ -47,6 +47,32 @@ function fireAdminDesktopNotification(title, body, severity) {
   }
 }
 
+// ── Helper: fire citizen safety notification ──
+function fireCitizenSafetyNotification(title, body) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification(title, {
+        body,
+        icon: '/vite.svg',
+        tag: 'citizen-safety-alert',
+        renotify: true,
+      });
+    } catch (_) { /* ignore */ }
+  }
+
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.ready.then(reg => {
+      reg.showNotification(title, {
+        body,
+        icon: '/vite.svg',
+        vibrate: [200, 100, 200],
+        tag: 'citizen-safety-alert',
+        renotify: true,
+      });
+    }).catch(() => {});
+  }
+}
+
 export function useWebSocket(user) {
   const socketRef = useRef(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -57,8 +83,8 @@ export function useWebSocket(user) {
   const listenersRef = useRef({});
 
   useEffect(() => {
-    // Request notification permission for admin/super admin users
-    if (user && user.role !== 'user' && 'Notification' in window && Notification.permission === 'default') {
+    // Request notification permission
+    if (user && 'Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
 
@@ -74,6 +100,17 @@ export function useWebSocket(user) {
     socket.on('connect', () => {
       console.log('🔌 WebSocket connected');
       setIsConnected(true);
+
+      // Register user with server so it assigns us to the right rooms
+      if (user) {
+        socket.emit('registerUser', {
+          role: user.role,
+          state: user.state || '',
+          district: user.district || '',
+          superadmin: !!user.superadmin,
+        });
+        console.log(`📡 Registered as ${user.superadmin ? 'superadmin' : user.role} (${user.state || 'all'} / ${user.district || 'all'})`);
+      }
     });
 
     socket.on('disconnect', () => {
@@ -81,67 +118,37 @@ export function useWebSocket(user) {
       setIsConnected(false);
     });
 
+    // ── Admin/SuperAdmin: New pothole detected (server already filtered by room) ──
     socket.on('newPothole', (data) => {
-      // Citizens should not receive detection events
-      if (user?.role === 'user') return;
-
-      if (user && !user.superadmin) {
-        if (user.state && data.state && user.state !== data.state) return;
-        if (user.district && data.district && user.district !== data.district) return;
-      }
       setLastPothole(data);
-
-      // ── Desktop notification for Admin / Super Admin ──
-      const severity = data.severity || 'medium';
-      const location = data.roadName || `${data.lat?.toFixed(5)}, ${data.lng?.toFixed(5)}`;
-      const title = severity === 'critical'
-        ? '🚨 CRITICAL POTHOLE DETECTED!'
-        : '⚠️ New Pothole Detected';
-      const body = `${severity.toUpperCase()} severity pothole at ${location}`;
-      fireAdminDesktopNotification(title, body, severity);
 
       if (listenersRef.current.onNewPothole) {
         listenersRef.current.onNewPothole(data);
       }
     });
 
+    // ── Admin/SuperAdmin: Pothole updated (server already filtered by room) ──
     socket.on('potholeUpdated', (data) => {
-      if (user && !user.superadmin) {
-        if (user.state && data.state && user.state !== data.state) return;
-        if (user.district && data.district && user.district !== data.district) return;
-      }
       if (listenersRef.current.onPotholeUpdated) {
         listenersRef.current.onPotholeUpdated(data);
       }
     });
 
+    // ── Admin/SuperAdmin: Sensor telemetry (server already filtered) ──
     socket.on('sensorData', (data) => {
-      // Sensor raw telemetry may not have explicit state/district attached yet on fast bursts
-      // We will allow sensorData to flow, or if it has them, strict filter it:
-      if (user && !user.superadmin && data.state && data.district) {
-        if (user.state !== data.state) return;
-        if (user.district !== data.district) return;
-      }
+      console.log('📡 sensorData received:', data);
       setLastSensorData(data);
       if (listenersRef.current.onSensorData) {
         listenersRef.current.onSensorData(data);
       }
     });
 
+    // ── Admin/SuperAdmin: Bell icon alerts (server already filtered by room) ──
     socket.on('newAlert', (data) => {
-      // Citizens should not receive detection alerts in the bell icon
-      if (user?.role === 'user') return;
-
-      // Filter jurisdictional boundary on global alerts (admin sees only their district)
-      if (user && !user.superadmin) {
-         const p = data.pothole || data;
-         if (user.state && p.state && user.state !== p.state) return;
-         if (user.district && p.district && p.district !== user.district) return;
-      }
       setLastAlert(data);
       setNotifications(prev => [data, ...prev].slice(0, 20));
 
-      // ── Desktop notification for Admin / Super Admin ──
+      // Desktop notification
       const pothole = data.pothole || {};
       const severity = pothole.severity || 'medium';
       const msg = data.message || `New ${severity} pothole detected`;
@@ -152,12 +159,40 @@ export function useWebSocket(user) {
       }
     });
 
+    // ── Admin/SuperAdmin: Server-side notifications ──
     socket.on('notification', (data) => {
-      // Citizens should not receive server-side notifications in bell icon
-      if (user?.role === 'user') return;
       setNotifications(prev => [data, ...prev].slice(0, 20));
     });
 
+    // ── Citizen: Safety-focused alerts (only warnings, not raw detections) ──
+    socket.on('citizenAlert', (data) => {
+      console.log('🛡️ Citizen safety alert received:', data);
+
+      // Add to bell icon notifications with citizen-friendly formatting
+      const citizenNotif = {
+        message: data.message,
+        severity: data.severity || 'medium',
+        source: 'safety_alert',
+        timestamp: data.timestamp || new Date().toISOString(),
+        type: data.type || 'warning',
+      };
+
+      setNotifications(prev => [citizenNotif, ...prev].slice(0, 20));
+      setLastAlert(citizenNotif);
+
+      // Fire citizen desktop notification
+      fireCitizenSafetyNotification(
+        data.title || '⚠️ Road Safety Alert',
+        data.message
+      );
+
+      // Trigger banner alert in App.jsx
+      if (listenersRef.current.onCitizenAlert) {
+        listenersRef.current.onCitizenAlert(data);
+      }
+    });
+
+    // ── Local notifications from iframe proximity (citizen only) ──
     const handleLocal = (e) => {
       setNotifications(prev => [e.detail, ...prev].slice(0, 20));
       setLastAlert(e.detail);
@@ -169,6 +204,16 @@ export function useWebSocket(user) {
       window.removeEventListener('localNotification', handleLocal);
     };
   }, [user]);
+
+  // When superadmin changes their filter, tell the server to update rooms
+  useEffect(() => {
+    if (socketRef.current && user?.superadmin) {
+      socketRef.current.emit('updateFilter', {
+        state: user.state || '',
+        district: user.district || '',
+      });
+    }
+  }, [user?.state, user?.district]);
 
   const on = useCallback((event, callback) => {
     listenersRef.current[event] = callback;

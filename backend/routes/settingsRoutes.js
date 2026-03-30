@@ -1,27 +1,32 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../config/db');
+const supabase = require('../config/db');
 
 // DELETE /api/settings/clear-database - Clear all data from the database
-router.delete('/clear-database', (req, res) => {
+router.delete('/clear-database', async (req, res) => {
   try {
-    const alertsDeleted = db.prepare('DELETE FROM alerts').run().changes;
-    const sensorDeleted = db.prepare('DELETE FROM sensor_data').run().changes;
-    const potholesDeleted = db.prepare('DELETE FROM potholes').run().changes;
+    // Delete in order: alerts → sensor_data → potholes (respects FK constraints)
+    const [alertsRes, sensorRes, potholesRes] = await Promise.all([
+      supabase.from('alerts').delete().neq('id', 0),       // delete all rows
+      supabase.from('sensor_data').delete().neq('id', 0),
+      supabase.from('potholes').delete().neq('id', 0),
+    ]);
 
-    // Reset auto-increment counters
-    db.prepare("DELETE FROM sqlite_sequence WHERE name IN ('alerts', 'sensor_data', 'potholes')").run();
+    // Check for errors
+    if (alertsRes.error) throw alertsRes.error;
+    if (sensorRes.error) throw sensorRes.error;
+    if (potholesRes.error) throw potholesRes.error;
 
-    console.log(`🗑️ Database cleared: ${potholesDeleted} potholes, ${sensorDeleted} sensor records, ${alertsDeleted} alerts`);
+    console.log('🗑️ Database cleared successfully');
 
     res.json({
       success: true,
       message: 'Database cleared successfully',
       deleted: {
-        potholes: potholesDeleted,
-        sensorData: sensorDeleted,
-        alerts: alertsDeleted
-      }
+        potholes: 'all',
+        sensorData: 'all',
+        alerts: 'all',
+      },
     });
   } catch (error) {
     console.error('Error clearing database:', error);
@@ -30,11 +35,17 @@ router.delete('/clear-database', (req, res) => {
 });
 
 // GET /api/settings/db-stats - Get database statistics
-router.get('/db-stats', (req, res) => {
+router.get('/db-stats', async (req, res) => {
   try {
-    const potholes = db.prepare('SELECT COUNT(*) as count FROM potholes').get().count;
-    const sensorData = db.prepare('SELECT COUNT(*) as count FROM sensor_data').get().count;
-    const alerts = db.prepare('SELECT COUNT(*) as count FROM alerts').get().count;
+    const [potholesRes, sensorDataRes, alertsRes] = await Promise.all([
+      supabase.from('potholes').select('*', { count: 'exact', head: true }),
+      supabase.from('sensor_data').select('*', { count: 'exact', head: true }),
+      supabase.from('alerts').select('*', { count: 'exact', head: true }),
+    ]);
+
+    const potholes = potholesRes.count || 0;
+    const sensorData = sensorDataRes.count || 0;
+    const alerts = alertsRes.count || 0;
 
     res.json({
       success: true,
@@ -42,8 +53,8 @@ router.get('/db-stats', (req, res) => {
         potholes,
         sensorData,
         alerts,
-        total: potholes + sensorData + alerts
-      }
+        total: potholes + sensorData + alerts,
+      },
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to get database stats' });

@@ -479,11 +479,12 @@ def send_to_backend(confidence, boxes, image_filename=None, bbox_w=0, bbox_h=0):
                 json=payload,
                 timeout=10,
             )
-            if r.status_code == 201:
-                log.info("✅ Backend updated  (road: %s, bbox: %dx%d)", road_name, bbox_w, bbox_h)
+            if r.status_code in (200, 201):
+                clustering = "(clustered)" if r.status_code == 200 else "(new)"
+                log.info("✅ Backend updated %s (road: %s, bbox: %dx%d)", clustering, road_name, bbox_w, bbox_h)
                 return
             else:
-                log.warning("⚠️  Backend rejected: %s", r.text)
+                log.warning("⚠️  Backend rejected (status %d): %s", r.status_code, r.text)
                 return
         except (requests.ConnectionError, ConnectionResetError) as e:
             if attempt < max_retries - 1:

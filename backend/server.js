@@ -1,13 +1,14 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const http = require('http');
 const { Server } = require('socket.io');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 
-// Initialize database (creates tables on first run)
-const db = require('./config/db');
+// Initialize Supabase connection (validates credentials on startup)
+require('./config/db');
 
 // Import routes
 const potholeRoutes = require('./routes/potholeRoutes');
@@ -31,8 +32,8 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-    methods: ['GET', 'POST']
-  }
+    methods: ['GET', 'POST'],
+  },
 });
 
 // Store io instance for use in routes
@@ -40,11 +41,17 @@ app.set('io', io);
 notificationService.setSocketIO(io);
 thingspeakService.setSocketIO(io);
 
-// Middleware
+// ── Security Middleware ─────────────────────────────────
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow image loading from frontend
+  contentSecurityPolicy: false, // Disable CSP for API server
+}));
+
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
+  credentials: true,
 }));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -54,42 +61,45 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Serve AI detection images (saved by pothole_detector.py)
 app.use('/detections-images', express.static(path.join(__dirname, '..', 'ai-service', 'detections')));
 
-// Rate limiting
+// ── Rate Limiting ────────────────────────────────────────
 const apiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
   max: 100,
-  message: { error: 'Too many requests, please try again later' }
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later' },
 });
 app.use('/api/', apiLimiter);
 
-// Root route
+// ── Root Route ───────────────────────────────────────────
 app.get('/', (req, res) => {
   res.json({
     name: 'AIoT Smart Road Monitor - Backend API',
-    version: '1.0.0',
+    version: '2.0.0',
     status: 'running',
+    database: 'Supabase',
     endpoints: {
       health: '/api/health',
       potholes: '/api/potholes',
       sensors: '/api/sensors',
       analytics: '/api/analytics',
-      thingspeak: '/api/thingspeak/latest'
+      thingspeak: '/api/thingspeak/latest',
     },
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
-// Routes
+// ── API Routes ───────────────────────────────────────────
 app.use('/api/pothole', authenticateApiKey, potholeRoutes);
-app.use('/api/potholes', potholeRoutes); // GET alias without auth
+app.use('/api/potholes', potholeRoutes);
 app.use('/api/sensor', authenticateApiKey, sensorRoutes);
-app.use('/api/sensors', sensorRoutes); // GET alias
+app.use('/api/sensors', sensorRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', authenticateApiKey, adminRoutes);
 app.use('/api/settings', authenticateApiKey, settingsRoutes);
 app.use('/api/reports', reportRoutes);
 
-// ThingSpeak direct data route
+// ── ThingSpeak Direct Data Routes ────────────────────────
 app.get('/api/thingspeak/latest', async (req, res) => {
   try {
     const data = await thingspeakService.readChannel(parseInt(req.query.results) || 10);
@@ -108,49 +118,114 @@ app.get('/api/thingspeak/last', async (req, res) => {
   }
 });
 
-// Health check
-app.get('/api/health', (req, res) => {
+// ── Health Check ─────────────────────────────────────────
+app.get('/api/health', async (req, res) => {
+  let dbStatus = 'unknown';
+  try {
+    const supabase = require('./config/db');
+    const { error } = await supabase.from('potholes').select('id', { count: 'exact', head: true });
+    dbStatus = error ? `error: ${error.message}` : 'connected';
+  } catch {
+    dbStatus = 'disconnected';
+  }
+
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    database: 'SQLite (local)',
+    database: `Supabase (${dbStatus})`,
     thingspeak: {
       channelId: process.env.THINGSPEAK_CHANNEL_ID || 'not configured',
-      polling: thingspeakService.pollingInterval ? 'active' : 'inactive'
-    }
+      polling: thingspeakService.pollingInterval ? 'active' : 'inactive',
+    },
   });
 });
 
-// WebSocket connection handling
+// ── WebSocket Connection Handling ──────────────────────
 io.on('connection', (socket) => {
   console.log(`🔌 Client connected: ${socket.id}`);
+
+  // Clients send their user info so we can assign them to the right rooms
+  socket.on('registerUser', (userData) => {
+    if (!userData) return;
+
+    // Leave any previous rooms (except the socket's own room)
+    for (const room of socket.rooms) {
+      if (room !== socket.id) socket.leave(room);
+    }
+
+    const { role, state, district, superadmin } = userData;
+
+    if (role === 'user') {
+      // Citizens only get safety/proximity warnings
+      socket.join('role:citizen');
+      if (state) socket.join(`citizen_state:${state.toLowerCase().trim()}`);
+      if (state && district) socket.join(`citizen_district:${state.toLowerCase().trim()}:${district.toLowerCase().trim()}`);
+      console.log(`👤 ${socket.id} joined room: role:citizen, state/district filtered`);
+    } else if (superadmin) {
+      // Super admins get ALL notifications
+      socket.join('role:superadmin');
+      console.log(`👑 ${socket.id} joined room: role:superadmin`);
+    } else if (role === 'admin') {
+      // District admins get notifications for their district only
+      socket.join('role:admin');
+      if (state) {
+        const stateRoom = `state:${state.toLowerCase().trim()}`;
+        socket.join(stateRoom);
+        console.log(`🏛️ ${socket.id} joined room: ${stateRoom}`);
+      }
+      if (state && district) {
+        const districtRoom = `district:${state.toLowerCase().trim()}:${district.toLowerCase().trim()}`;
+        socket.join(districtRoom);
+        console.log(`🏛️ ${socket.id} joined room: ${districtRoom}`);
+      }
+    }
+  });
+
+  // Allow super admin to change their filter dynamically
+  socket.on('updateFilter', (filterData) => {
+    if (!filterData) return;
+    // Leave old geographic rooms
+    for (const room of socket.rooms) {
+      if (room.startsWith('state:') || room.startsWith('district:') || room.startsWith('filter:')) {
+        socket.leave(room);
+      }
+    }
+    // Join new filtered rooms (empty = national view = superadmin sees all)
+    const { state, district } = filterData;
+    if (state) {
+      socket.join(`filter:state:${state.toLowerCase().trim()}`);
+      if (district) {
+        socket.join(`filter:district:${state.toLowerCase().trim()}:${district.toLowerCase().trim()}`);
+      }
+    }
+  });
 
   socket.on('disconnect', () => {
     console.log(`❌ Client disconnected: ${socket.id}`);
   });
 
-  // Allow clients to subscribe to specific events
   socket.on('subscribe', (channel) => {
     socket.join(channel);
     console.log(`📡 ${socket.id} subscribed to ${channel}`);
   });
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
+// ── Error Handling Middleware ───────────────────────────
+app.use((err, req, res, _next) => {
   console.error('Server error:', err);
-  res.status(500).json({ 
+  res.status(500).json({
     error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined,
   });
 });
 
-// 404 handler
+// ── 404 Handler ────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
+// ── Start Server ─────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
@@ -160,7 +235,7 @@ server.listen(PORT, () => {
 ║                                                  ║
 ║     Server:     http://localhost:${PORT}            ║
 ║     WebSocket:  ws://localhost:${PORT}              ║
-║     Database:   SQLite (local file)              ║
+║     Database:   Supabase (cloud)                 ║
 ║     ThingSpeak: Channel ${process.env.THINGSPEAK_CHANNEL_ID || 'N/A'}                ║
 ║     Status:     Running ✅                        ║
 ╚══════════════════════════════════════════════════╝

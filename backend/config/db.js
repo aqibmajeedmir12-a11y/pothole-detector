@@ -1,88 +1,39 @@
-const Database = require('better-sqlite3');
-const path = require('path');
-const fs = require('fs');
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config();
 
-// Ensure data directory exists
-const dataDir = path.join(__dirname, '..', 'data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('❌ SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in .env');
+  process.exit(1);
 }
 
-const dbPath = path.join(dataDir, 'roadmonitor.db');
-const db = new Database(dbPath);
+// Service-role client — bypasses RLS, for backend use only
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+});
 
-// Enable WAL mode for better concurrent read performance
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+// Quick connectivity check
+(async () => {
+  try {
+    const { error } = await supabase.from('potholes').select('id', { count: 'exact', head: true });
+    if (error) {
+      // Table may not exist yet — that's okay on first run
+      if (error.code === '42P01') {
+        console.warn('⚠️  Supabase connected but tables do not exist yet. Run schema.sql in the Supabase SQL Editor.');
+      } else {
+        console.error('❌ Supabase connectivity check failed:', error.message);
+      }
+    } else {
+      console.log('✅ Supabase database connected successfully');
+    }
+  } catch (err) {
+    console.error('❌ Failed to connect to Supabase:', err.message);
+  }
+})();
 
-// Create tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS potholes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    lat REAL NOT NULL,
-    lng REAL NOT NULL,
-    severity TEXT NOT NULL DEFAULT 'medium' CHECK(severity IN ('low','medium','high','critical')),
-    source TEXT NOT NULL DEFAULT 'manual' CHECK(source IN ('ai_camera','esp32_sensor','manual')),
-    image_url TEXT,
-    description TEXT,
-    status TEXT NOT NULL DEFAULT 'detected' CHECK(status IN ('detected','confirmed','in_repair','repaired')),
-    detected_at TEXT NOT NULL DEFAULT (datetime('now')),
-    repaired_at TEXT,
-    maintenance_notes TEXT,
-    road_name TEXT,
-    confidence REAL DEFAULT 0.0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS sensor_data (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    device_id TEXT NOT NULL,
-    vibration_level REAL NOT NULL,
-    lat REAL,
-    lng REAL,
-    timestamp TEXT NOT NULL DEFAULT (datetime('now')),
-    pothole_detected INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'viewer' CHECK(role IN ('admin','viewer')),
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS alerts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    pothole_id INTEGER REFERENCES potholes(id),
-    message TEXT NOT NULL,
-    type TEXT NOT NULL DEFAULT 'detection' CHECK(type IN ('detection','severity_change','repair')),
-    read INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_potholes_status ON potholes(status);
-  CREATE INDEX IF NOT EXISTS idx_potholes_severity ON potholes(severity);
-  CREATE INDEX IF NOT EXISTS idx_potholes_detected_at ON potholes(detected_at);
-  CREATE INDEX IF NOT EXISTS idx_sensor_data_device ON sensor_data(device_id);
-  CREATE INDEX IF NOT EXISTS idx_sensor_data_timestamp ON sensor_data(timestamp);
-  CREATE INDEX IF NOT EXISTS idx_alerts_read ON alerts(read);
-`);
-
-// Migration: add estimation columns and location details (idempotent)
-const migrationColumns = [
-  { name: 'area',   sql: 'ALTER TABLE potholes ADD COLUMN area REAL DEFAULT 0' },
-  { name: 'volume', sql: 'ALTER TABLE potholes ADD COLUMN volume REAL DEFAULT 0' },
-  { name: 'cost',   sql: 'ALTER TABLE potholes ADD COLUMN cost INTEGER DEFAULT 0' },
-  { name: 'state',  sql: 'ALTER TABLE potholes ADD COLUMN state TEXT' },
-  { name: 'district', sql: 'ALTER TABLE potholes ADD COLUMN district TEXT' },
-];
-for (const col of migrationColumns) {
-  try { db.exec(col.sql); } catch (_) { /* column already exists */ }
-}
-
-console.log('✅ SQLite database initialized at', dbPath);
-
-module.exports = db;
+module.exports = supabase;
